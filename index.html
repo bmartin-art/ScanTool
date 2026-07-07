@@ -220,14 +220,62 @@
 
 const LOGO_URI="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMiIgZGF0YS1uYW1lPSJMYXllciAyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MjQuMTIgODI0LjEyIj4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmNscy0xIHsKICAgICAgICBmb250LWZhbWlseTogTWFudWZha3R1ci1VbHRyYUV4cGFuZGVkQmxhY2ssIE1hbnVmYWt0dXI7CiAgICAgICAgZm9udC1zaXplOiA0OC4yN3B4OwogICAgICAgIGZvbnQtd2VpZ2h0OiA4MDA7CiAgICAgIH0KCiAgICAgIC5jbHMtMSwgLmNscy0yIHsKICAgICAgICBmaWxsOiAjMTYzMTU4OwogICAgICB9CiAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIj4KICAgIDxnPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik00NjcuNDIsMzYzLjc0aC0xMDMuNjF2MzEuMzZoMTAzLjYxYzguNTMsMCwxNi4wNi02Ljc4LDE2LjA2LTE1LjhzLTcuNTItMTUuNTYtMTYuMDYtMTUuNTZaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMiIgZD0iTTYxOS4zOSw0NTUuNjdjLS41Ni0xLjg2LTI0LjU4LTE2LjgtMjktMjAuNTMtMTAuMzctOC43NS0xMi43Ny0yNC4zLTcuMDktMzYuMjQuNC0uODUsMS0xLjU5LDEuNzItMi4yLDkuMjgtNy43NywyMi4xMi0xMy42LDMwLjkyLTIxLjQxLDIuMDktMS44NSwzLjkyLTMuNjgsMy42Ni02Ljc0bC0xMy4wMi0zOS4wM2MtLjg0LTIuNTEtMy4wOC00LjI4LTUuNzItNC41MmgtLjA2Yy05LjI3LS44NC0yMi4zOCwxLjQxLTMxLjk4LDEuNjYtMTUuNDEuNC0yOC40OS0yMS4wMy0yNy4zLTI3LjE5LDIuMTEtMTAuOSwxMS43My0yNS43OSwxMy4yLTM3LjE0LjI5LTIuMjguMy0zLjY2LS4wNS00Ljc5LjMzLTIuMjgtLjc2LTMuODctMi4zNC01LjUyLTQuNi00Ljg0LTE5Ljk4LTE1LjMzLTI2LjE2LTE5LjM4LTYuNDktNC4yNS04LjI0LTcuMjgtMTYuMTctMi44Ny05LjE4LDUuMS0yMy42NCwyMS4zNy0zMiwyMy4xMi03LjU4LDEuNTgtMjMuODktMi45OS0yOC42LTkuODYtMy4zMS04LjM2LTguOTktMzQuNzctMTItMzguNy0uMTItLjI4LS4yMS0uNTctLjMzLS44NS0xLjY5LTIuNjktNi4yOC0zLjQ1LTkuNDYtMy42NS05LjE3LTIuMTgtMjAuMjYtMS4xMy0yOC4yNC4wNS0yLjUyLjA0LTUuMDMuMDYtNy41MSwwLTIuMjMtLjA2LTQuNDIuOTEtNS42MiwyLjc5LS4zLjQ3LS41OCwxLjAxLS44NywxLjY3LTQuNjIsMTAuNzMtNS45NywyNS45MS0xMC41MywzNi41Ny0yLjk3LDYuOTMtMTkuMDIsMTEuNzQtMjYuMDgsMTIuODEtMS43Mi4yNi0zLjQ3LS4yMS00Ljg3LTEuMjZsLTMzLjM3LTI0LjgxYy0yLjU4LTEuNjMtNC40NS0uNjQtNi44MS41MS01Ljk1LDIuODktMjUuNDIsMTcuNTgtMzEuMTYsMjIuMzYtMS45NSwxLjYzLTQuNSwzLjQyLTQuMTIsNi4yOGwyLjM0LDYuNTcsMTAuMjQsMzAuMzdjLjIyLjY3LjU3LDEuMjUuOTYsMS43OC4yLDEuNjcuMjIsMy4zNi0uMDksNS4wMi0uNSwyLjc0LTkuNDQsMTQuNDEtMTEuNzksMTYuOTYtMS43NiwxLjkxLTQuMzksNC40Ni03LDQuOTktMTEuMzUsMi4zMS0yOS4yMS0xLjI1LTQxLjQxLjE3LS4zOS4wNS0uODUuMjEtMS4zNS40Ni0yLjM5LDEuMTctNC4xMSwzLjM4LTQuOTMsNS45MS0zLjQ1LDEwLjYyLTEyLjg3LDMyLjMtMTAuNzMsMzkuMzcuNTYsMS44NiwyNC41OCwxNi44LDI5LDIwLjUzLDEwLjM3LDguNzUsMTIuNzcsMjQuMyw3LjA5LDM2LjI0LS40Ljg1LTEsMS41OS0xLjcyLDIuMi05LjI4LDcuNzctMjIuMTIsMTMuNi0zMC45MiwyMS40MS0yLjA5LDEuODUtMy45MiwzLjY4LTMuNjYsNi43NGwxMy4wMiwzOS4wM2MuODQsMi41MSwzLjA4LDQuMjgsNS43Miw0LjUyaC4wNmM5LjI3Ljg0LDIyLjM4LTEuNDEsMzEuOTgtMS42NiwxNS40MS0uNCwyOC40OSwyMS4wMywyNy4zLDI3LjE5LTIuMTEsMTAuOS0xMS43MywyNS43OS0xMy4yLDM3LjE0LS4yOSwyLjI4LS4zLDMuNjYuMDUsNC43OS0uMzMsMi4yOC43NiwzLjg3LDIuMzQsNS41Miw0LjYsNC44NCwxOS45OCwxNS4zMywyNi4xNiwxOS4zOCw2LjQ5LDQuMjUsOC4yNCw3LjI4LDE2LjE3LDIuODcsOS4xOC01LjEsMjMuNjQtMjEuMzcsMzItMjMuMTIsNy41OC0xLjU4LDIzLjg5LDIuOTksMjguNiw5Ljg2LDMuMzEsOC4zNiw4Ljk5LDM0Ljc3LDEyLDM4LjcuMTIuMjguMjEuNTcuMzMuODUsMS42OSwyLjY5LDYuMjgsMy40NSw5LjQ2LDMuNjUsOS4xNywyLjE4LDIwLjI2LDEuMTMsMjguMjQtLjA1LDIuNTItLjA0LDUuMDMtLjA2LDcuNTEsMCwyLjIzLjA2LDQuNDItLjkxLDUuNjItMi43OS4zLS40Ny41OC0xLjAxLjg3LTEuNjcsNC42Mi0xMC43Myw1Ljk3LTI1LjkxLDEwLjUzLTM2LjU3LDIuOTctNi45MywxOS4wMi0xMS43NCwyNi4wOC0xMi44MSwxLjcyLS4yNiwzLjQ3LjIxLDQuODcsMS4yNmwzMy4zNywyNC44MWMyLjU4LDEuNjMsNC40NS42NCw2LjgxLS41MSw1Ljk1LTIuODksMjUuNDItMTcuNTgsMzEuMTYtMjIuMzYsMS45NS0xLjYzLDQuNS0zLjQyLDQuMTItNi4yOGwtMi4zNC02LjU3LTEwLjI0LTMwLjM3Yy0uMjMtLjY3LS41Ny0xLjI1LS45Ni0xLjc4LS4yLTEuNjctLjIyLTMuMzYuMDktNS4wMi41LTIuNzQsOS40NC0xNC40MSwxMS43OS0xNi45NiwxLjc2LTEuOTEsNC4zOS00LjQ2LDctNC45OSwxMS4zNS0yLjMxLDI5LjIxLDEuMjUsNDEuNDEtLjE3LjM5LS4wNS44NS0uMjEsMS4zNS0uNDYsMi4zOS0xLjE3LDQuMTEtMy4zOCw0LjkzLTUuOTEsMy40NS0xMC42MiwxMi44Ny0zMi4zLDEwLjczLTM5LjM3Wk00NzguNzEsNDk5LjcyaC0xNzEuODZ2LTE3NS4zN2gxNzEuODZjNjIuNDcuNzUsNzMuNzYsODAuNzksMTcuMzEsODguMDYsNTYuNDUsNi43Nyw0NS4xNiw4Ny4zMS0xNy4zMSw4Ny4zMVoiLz4KICAgICAgPHBhdGggY2xhc3M9ImNscy0yIiBkPSJNNDY3LjQyLDQyOC45N2gtMTAzLjYxdjMyLjM2aDEwMy42MWM4LjUzLDAsMTYuMDYtNy4yOCwxNi4wNi0xNi4wNiwwLTkuMjgtNy41Mi0xNi4zMS0xNi4wNi0xNi4zMVoiLz4KICAgICAgPGc+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjMuNDcgNDQyLjI1KSByb3RhdGUoMTAxLjUpIj48dHNwYW4geD0iMCIgeT0iMCI+QjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjU0LjQ4IDQ4NC44MSkgcm90YXRlKDExMC45OSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NDAuMDggNTIxLjc4KSByb3RhdGUoMTE5LjkzKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlQ8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYyMC44NSA1NTUuMzEpIHJvdGF0ZSgxMjkuMjgpIj48dHNwYW4geD0iMCIgeT0iMCI+VDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTk2LjM3IDU4NS40NCkgcm90YXRlKDEzNy40NSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NjcuMTYgNjEyLjI1KSByb3RhdGUoMTQ2LjkzKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlI8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUyOS45OSA2MzUuMzIpIHJvdGF0ZSgxNTMuODQpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTE0LjU2IDY0Mi44KSByb3RhdGUoMTU3Ljc0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPiA8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ5OS40IDY0OS45OCkgcm90YXRlKDE2NS4xOSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5NPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NTIuMTcgNjYxLjg5KSByb3RhdGUoMTc1LjE0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPkU8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQxMi41OSA2NjUuMDYpIHJvdGF0ZSgtMTc2LjAxKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlQ8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM3NC4wMyA2NjIuNDEpIHJvdGF0ZSgtMTY2LjcpIj48dHNwYW4geD0iMCIgeT0iMCI+QTwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzMxLjggNjUxLjk5KSByb3RhdGUoLTE1Ny41MSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5MPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyOTcuNTkgNjM3LjEpIHJvdGF0ZSgtMTUxLjMyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPiA8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI4Mi42IDYyOC43OSkgcm90YXRlKC0xNDcuNDMpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjY4LjA4IDYyMC4yNykgcm90YXRlKC0xNDAuNzIpIj48dHNwYW4geD0iMCIgeT0iMCI+RjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjM3LjI1IDU5NS4yMikgcm90YXRlKC0xMzEuNykiPjx0c3BhbiB4PSIwIiB5PSIwIj5BPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMDguNTggNTYyLjU2KSByb3RhdGUoLTEyMi4yMikiPjx0c3BhbiB4PSIwIiB5PSIwIj5TPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODcuNTkgNTI4Ljg5KSByb3RhdGUoLTExMy4yOSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5UPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNzIuNDEgNDkzLjMpIHJvdGF0ZSgtMTA0LjQyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPkU8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2Mi41NCA0NTQuODkpIHJvdGF0ZSgtOTUuMDUpIj48dHNwYW4geD0iMCIgeT0iMCI+UjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU5LjYzIDQxMS4yMykgcm90YXRlKC04OC4yMSkiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNjAuMjYgMzk0LjA3KSByb3RhdGUoLTg0LjMyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPiA8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2MS4yNSAzNzcuMjkpIHJvdGF0ZSgtNzcuNDUpIj48dHNwYW4geD0iMCIgeT0iMCI+QjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTcxIDMzNC45NSkgcm90YXRlKC02Ny45NykiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODYuMDcgMjk4LjI0KSByb3RhdGUoLTU5LjA0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPlQ8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIwNi4xNCAyNjUuMTIpIHJvdGF0ZSgtNTAuMzUpIj48dHNwYW4geD0iMCIgeT0iMCI+VDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjMwLjk0IDIzNS4zNikgcm90YXRlKC00MS41MSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNjAuNjMgMjA5LjA5KSByb3RhdGUoLTMyLjAyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlI8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI5OC4yMiAxODYuNykgcm90YXRlKC0yNS4xMSkiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzMTMuODEgMTc5LjUpIHJvdGF0ZSgtMjEuMjEpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzI5LjA4IDE3Mi42MSkgcm90YXRlKC0xMy43NykiPjx0c3BhbiB4PSIwIiB5PSIwIj5NPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNzYuNTEgMTYxLjU2KSByb3RhdGUoLTMuODMpIj48dHNwYW4geD0iMCIgeT0iMCI+RTwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDE2LjExIDE1OS4xKSByb3RhdGUoNS4wMikiPjx0c3BhbiB4PSIwIiB5PSIwIj5UPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NTQuNjUgMTYyLjQ1KSByb3RhdGUoMTQuMzUpIj48dHNwYW4geD0iMCIgeT0iMCI+QTwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDk2LjY5IDE3My42NCkgcm90YXRlKDIzLjU0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPkw8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUzMC42MiAxODkuMTcpIHJvdGF0ZSgyOS43MikiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NDUuNDYgMTk3Ljc0KSByb3RhdGUoMzMuNjEpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTU5LjggMjA2LjY2KSByb3RhdGUoMzkuOTYpIj48dHNwYW4geD0iMCIgeT0iMCI+RjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTkwLjE4IDIzMi4xMSkgcm90YXRlKDQ5LjM0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPkE8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYxOC4yNSAyNjUuMjkpIHJvdGF0ZSg1OC44MykiPjx0c3BhbiB4PSIwIiB5PSIwIj5TPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2MzguNjEgMjk5LjMzKSByb3RhdGUoNjcuNzUpIj48dHNwYW4geD0iMCIgeT0iMCI+VDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjUzLjE1IDMzNS4yMSkgcm90YXRlKDc2LjYyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPkU8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY2Mi4zMiAzNzMuNzgpIHJvdGF0ZSg4NS45OSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5SPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjQuNDQgNDE3LjUpIHJvdGF0ZSg5Mi44MykiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjMuNTEgNDM0LjY0KSByb3RhdGUoOTYuNzIpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjYxLjQxIDQ1MS42OCkgcm90YXRlKDEwMC42MikiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgIDwvZz4KICAgIDwvZz4KICA8L2c+Cjwvc3ZnPg==";
 
-/* ---------- Store (localStorage now; swap this block for a Worker later) -- */
+/* ---------- Connection config (Worker URL + shared access code) ---------- */
+const Cfg = {
+  key:'ducttracker.api',
+  get(){ try{return JSON.parse(localStorage.getItem(this.key))||{}}catch(e){return {}} },
+  set(c){ localStorage.setItem(this.key, JSON.stringify(c)); },
+  ready(){ const c=this.get(); return !!(c.base && c.token); },
+};
+
+/* ---------- Store: Cloudflare Worker + D1, with a local cache/offline net.
+   Reads are synchronous off an in-memory cache (so nothing else in the app
+   changed). init() and openJob() pull fresh from the Worker; save() writes
+   through to the Worker AND mirrors to localStorage, so a network blip never
+   loses a scan — failed writes are retried on the next sync. ---------------- */
 const Store = {
   key:'ducttracker.jobs.v1',
-  all(){ try{return JSON.parse(localStorage.getItem(this.key))||{}}catch(e){return {}} },
-  list(){ return Object.values(this.all()).sort((a,b)=>b.createdAt-a.createdAt); },
-  get(name){ return this.all()[name]||null; },
-  save(job){ const a=this.all(); a[job.name]=job; localStorage.setItem(this.key,JSON.stringify(a)); },
-  remove(name){ const a=this.all(); delete a[name]; localStorage.setItem(this.key,JSON.stringify(a)); },
+  _cache:{}, _dirty:new Set(),
+  _localAll(){ try{return JSON.parse(localStorage.getItem(this.key))||{}}catch(e){return {}} },
+  _localWrite(){ try{localStorage.setItem(this.key, JSON.stringify(this._cache));}catch(e){} },
+  async _api(method, path, body){
+    const c=Cfg.get();
+    const res=await fetch(c.base.replace(/\/$/,'')+path,{
+      method,
+      headers:{'Content-Type':'application/json','X-Access-Token':c.token},
+      body: body!==undefined?JSON.stringify(body):undefined });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return res.json();
+  },
+  async init(){
+    this._cache=this._localAll();                 // seed instantly / offline-safe
+    try{
+      const jobs=await this._api('GET','/jobs');
+      this._cache={}; for(const j of jobs) this._cache[j.name]=j;
+      this._localWrite();
+      if(this._dirty.size) this._flush();
+      return true;
+    }catch(e){ toast('Offline — using local copy'); return false; }
+  },
+  async refresh(name){
+    try{ const j=await this._api('GET','/jobs/'+encodeURIComponent(name));
+      if(j){ this._cache[name]=j; this._localWrite(); } return j; }
+    catch(e){ return this._cache[name]||null; }
+  },
+  all(){ return {...this._cache}; },
+  list(){ return Object.values(this._cache).sort((a,b)=>b.createdAt-a.createdAt); },
+  get(name){ return this._cache[name]||null; },
+  save(job){                                       // sync-looking; writes through async
+    this._cache[job.name]=job; this._localWrite();
+    this._api('PUT','/jobs/'+encodeURIComponent(job.name), job)
+      .then(()=>this._dirty.delete(job.name))
+      .catch(()=>{ this._dirty.add(job.name); toast('Not synced yet — will retry'); });
+  },
+  remove(name){
+    delete this._cache[name]; this._localWrite();
+    this._api('DELETE','/jobs/'+encodeURIComponent(name)).catch(()=>toast('Delete not synced'));
+  },
+  _flush(){ for(const n of [...this._dirty]){ const j=this._cache[n]; if(j) this.save(j); } },
 };
 
 /* ---------- tolerant CSV parser -----------------------------------------
@@ -345,21 +393,50 @@ const appEl=document.getElementById('app');
 const footerEl=document.getElementById('footer');
 
 function go(v){ view=v; render(); }
-function openJob(name){ job=Store.get(name); mode='truck'; activePallet=null; go('scan'); }
+async function openJob(name){ await Store.refresh(name); job=Store.get(name); mode='truck'; activePallet=null; go('scan'); }
 
 function render(){
-  document.getElementById('homeBtn').classList.toggle('hidden', view==='home');
-  document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home');
+  document.getElementById('homeBtn').classList.toggle('hidden', view==='home'||view==='settings');
+  document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home'||view==='settings');
   if(job) document.getElementById('jobtagName').textContent=job.name;
   footerEl.classList.add('hidden'); footerEl.innerHTML='';
   if(view==='home') renderHome();
   else if(view==='ingest') renderIngest();
   else if(view==='scan') renderScan();
   else if(view==='report') renderReport();
+  else if(view==='settings') renderSettings(!Cfg.ready());
 }
 document.getElementById('homeBtn').onclick=()=>{ job=null; go('home'); };
 
-/* ---------- HOME ---------------------------------------------------------- */
+/* ---------- SETTINGS / connection ---------------------------------------- */
+function renderSettings(first){
+  const c=Cfg.get();
+  appEl.innerHTML=`
+    <h1>${first?'Connect this device':'Connection'}</h1>
+    <p class="sub">${first?'One-time setup. ':''}Enter your Cloudflare Worker URL and the shared access code (the ACCESS_TOKEN you set in Cloudflare). Every device that scans this data uses the same two values.</p>
+    <div style="max-width:540px">
+      <label class="muted" style="font-size:13px;display:block;margin-bottom:6px">Worker URL</label>
+      <input type="text" id="cfgBase" placeholder="https://duct-tracker.yoursubdomain.workers.dev" value="${esc(c.base||'')}" style="width:100%;margin-bottom:14px">
+      <label class="muted" style="font-size:13px;display:block;margin-bottom:6px">Access code</label>
+      <input type="text" id="cfgToken" placeholder="shared ACCESS_TOKEN" value="${esc(c.token||'')}" style="width:100%;margin-bottom:18px">
+      <div class="row">
+        <button class="btn primary" id="cfgSave">Save &amp; connect</button>
+        ${first?'':'<button class="btn ghost" id="cfgBack">Back</button>'}
+      </div>
+      <p id="cfgMsg" class="muted" style="margin-top:14px;font-size:13px"></p>
+    </div>`;
+  document.getElementById('cfgSave').onclick=async()=>{
+    const base=document.getElementById('cfgBase').value.trim();
+    const token=document.getElementById('cfgToken').value.trim();
+    const msg=document.getElementById('cfgMsg');
+    if(!base||!token){ msg.textContent='Both fields are required.'; return; }
+    Cfg.set({base,token}); msg.textContent='Connecting…';
+    const ok=await Store.init();
+    if(ok){ job=null; go('home'); toast('Connected'); }
+    else{ msg.textContent='Could not reach the Worker. Check the URL and access code.'; }
+  };
+  const back=document.getElementById('cfgBack'); if(back) back.onclick=()=>{ job=null; go('home'); };
+}
 function renderHome(){
   const jobs=Store.list();
   appEl.innerHTML=`
@@ -368,6 +445,7 @@ function renderHome(){
     <div class="row" style="margin-bottom:18px">
       <button class="btn primary" id="newJob">New job from CSV</button>
       <button class="btn" id="openFile">Open job file (.json)</button>
+      <button class="btn ghost" id="settingsBtn" style="margin-left:auto">Connection</button>
       <input type="file" id="csvFile" accept=".csv,.CSV" class="hidden">
       <input type="file" id="jsonFile" accept=".json" class="hidden">
     </div>
@@ -376,6 +454,7 @@ function renderHome(){
   `;
   document.getElementById('newJob').onclick=()=>document.getElementById('csvFile').click();
   document.getElementById('openFile').onclick=()=>document.getElementById('jsonFile').click();
+  document.getElementById('settingsBtn').onclick=()=>go('settings');
   document.getElementById('csvFile').onchange=e=>loadCSVFile(e.target.files[0]);
   document.getElementById('jsonFile').onchange=e=>loadJSONFile(e.target.files[0]);
   const drop=document.getElementById('drop');
@@ -768,7 +847,12 @@ function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-render();
+async function boot(){
+  if(!Cfg.ready()){ view='settings'; render(); return; }
+  await Store.init();
+  view='home'; render();
+}
+boot();
 </script>
 </body>
 </html>
