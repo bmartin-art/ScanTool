@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Duct Tracker — Brookstone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<!-- QR generation for pallet tags -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#14171C; --panel:#1D222B; --panel2:#232A35; --line:#2E3746;
+    --ink:#E7ECF3; --muted:#8A93A2; --amber:#FFB020;
+    --good:#22C55E; --bad:#EF4444; --warn:#FFB020; --info:#3B82F6;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --disp:"Archivo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--disp);
+       -webkit-font-smoothing:antialiased;font-size:16px}
+  button{font-family:var(--disp);cursor:pointer}
+  .mono{font-family:var(--mono)}
+  .muted{color:var(--muted)}
+  .hidden{display:none!important}
+
+  /* ---- shell ---- */
+  header.bar{display:flex;align-items:center;gap:14px;padding:12px 18px;
+    background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .logo{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:15px}
+  .logo b{color:var(--amber)}
+  .bar .spacer{flex:1}
+  .jobtag{font-family:var(--mono);font-size:13px;color:var(--muted);
+    border:1px solid var(--line);border-radius:6px;padding:5px 10px}
+  .jobtag b{color:var(--ink)}
+  main{max-width:1080px;margin:0 auto;padding:22px 18px 90px}
+
+  h1{font-size:26px;font-weight:800;letter-spacing:-.01em;margin:0 0 4px}
+  h2{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+     color:var(--muted);margin:26px 0 12px}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:15px}
+
+  .btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);
+    border-radius:8px;padding:11px 16px;font-weight:600;font-size:15px}
+  .btn:hover{border-color:#3d485b}
+  .btn.primary{background:var(--amber);color:#1a1400;border-color:var(--amber)}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:#ffd7d7;border-color:#5a2b2b;background:#241a1a}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+  /* ---- home / job cards ---- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card .name{font-weight:700;font-size:18px;margin-bottom:6px}
+  .card .meta{font-size:13px;color:var(--muted);font-family:var(--mono)}
+  .card .bar-wrap{margin-top:12px}
+  .prog{height:8px;background:#0e1116;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+  .prog > i{display:block;height:100%;background:var(--good);width:0}
+  .drop{border:1.5px dashed var(--line);border-radius:12px;padding:26px;text-align:center;
+    background:var(--panel);color:var(--muted)}
+  .drop.hot{border-color:var(--amber);color:var(--ink)}
+
+  input[type=text]{font-family:var(--disp);background:#0e1116;border:1px solid var(--line);
+    color:var(--ink);border-radius:8px;padding:11px 12px;font-size:15px}
+  input[type=text]:focus{outline:none;border-color:var(--amber)}
+
+  /* ---- scan view ---- */
+  .modebar{display:flex;gap:8px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:6px;margin-bottom:16px}
+  .modebtn{flex:1;border:none;background:transparent;color:var(--muted);
+    padding:12px;border-radius:7px;font-weight:700;font-size:15px;letter-spacing:.02em}
+  .modebtn.active{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+  .modebtn.active.truck{color:var(--info);box-shadow:inset 0 0 0 1px #2b4b7a}
+  .modebtn.active.pallet{color:var(--amber);box-shadow:inset 0 0 0 1px #5a4410}
+
+  .scanwrap{position:relative}
+  .scaninput{width:100%;font-family:var(--mono);font-size:20px;padding:16px 16px;
+    background:#0e1116;border:1px solid var(--line);border-radius:10px;color:var(--ink);letter-spacing:.02em}
+  .scaninput:focus{outline:none;border-color:var(--amber)}
+  .focushint{position:absolute;right:14px;top:50%;transform:translateY(-50%);
+    font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+  .focushint.on{color:var(--good)} .focushint.off{color:var(--bad)}
+
+  /* the signature: big scan feedback slab */
+  .feedback{margin-top:14px;border-radius:14px;padding:22px 22px;min-height:132px;
+    display:flex;flex-direction:column;justify-content:center;border:1px solid var(--line);
+    background:var(--panel);transition:background .08s,border-color .08s}
+  .feedback.good{background:#0f2a19;border-color:#1f6b3f}
+  .feedback.bad{background:#2a1414;border-color:#7a2b2b}
+  .feedback.warn{background:#2a2410;border-color:#6b5410}
+  .feedback .fbtop{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .feedback .fbmain{font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.01em}
+  .feedback .fbcount{font-family:var(--mono);font-size:44px;font-weight:700;margin-top:8px}
+  .feedback.good .fbcount{color:var(--good)}
+  .feedback.warn .fbcount{color:var(--warn)}
+  .feedback .fbsub{color:var(--muted);margin-top:6px;font-family:var(--mono);font-size:13px}
+
+  /* progress + tables */
+  .stat{display:flex;gap:22px;flex-wrap:wrap;margin:6px 0 20px}
+  .stat .k{font-family:var(--mono);font-size:26px;font-weight:700}
+  .stat .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  td.mono,th.num{font-family:var(--mono)}
+  td.num,th.num{text-align:right}
+  tr.done td{color:var(--muted)}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;
+    letter-spacing:.06em;text-transform:uppercase}
+  .pill.fab{background:#22303f;color:#9fc4ec}
+  .pill.pallet{background:#332a10;color:var(--amber)}
+  .pill.loaded{background:#12331f;color:#7ee0a2}
+  .pill.short{background:#331414;color:#f0a3a3}
+  .pill.stock{background:#2a2333;color:#c9a8e6}
+
+  /* stock tiles */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .tile .d{font-weight:600;font-size:14px;margin-bottom:2px}
+  .tile .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .counter{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .counter button{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--ink);font-size:22px;font-weight:700}
+  .counter .v{font-family:var(--mono);font-size:22px;font-weight:700;min-width:64px;text-align:center}
+  .counter .of{color:var(--muted);font-size:14px}
+
+  /* pallets */
+  .palletcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px}
+  .palletcard.active{border-color:var(--amber)}
+  .palletcard .ph{display:flex;align-items:center;gap:10px}
+  .palletcard .pid{font-family:var(--mono);font-weight:700;font-size:16px}
+  #tagModal,#slipModal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;
+    justify-content:center;z-index:50;padding:20px;overflow:auto}
+  .tag{background:#fff;color:#000;border-radius:8px;padding:24px;width:340px;text-align:center}
+  .tag h3{margin:0 0 4px;font-size:22px;letter-spacing:.04em}
+  .tag .job{font-family:var(--mono);font-size:13px;color:#444;margin-bottom:14px}
+  .tag #qrbox{display:flex;justify-content:center;margin:0 auto 12px}
+  .tag .manifest{text-align:left;font-size:12px;font-family:var(--mono);color:#222;
+    border-top:1px dashed #bbb;padding-top:10px;margin-top:6px}
+  .slip{background:#fff;color:#111;border-radius:8px;padding:34px 38px;width:640px;max-width:100%;font-family:var(--disp)}
+  .slip .sh{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #163158;padding-bottom:14px;margin-bottom:16px}
+  .slip .brand{display:flex;align-items:center;gap:14px}
+  .slip .slip-logo{width:58px;height:58px;flex:none}
+  .slip .co{font-weight:800;font-size:22px;letter-spacing:.02em;color:#163158;line-height:1.05}
+  .slip .co span{display:block;font-weight:600;font-size:11px;color:#5b6b82;letter-spacing:.14em;text-transform:uppercase;margin-top:3px}
+  .slip .doctype{text-align:right;font-weight:700;font-size:18px;letter-spacing:.06em;text-transform:uppercase;color:#163158}
+  .tag .tag-logo{width:46px;height:46px;margin:0 auto 6px;display:block}
+  .slip .meta{display:flex;gap:36px;flex-wrap:wrap;margin-bottom:18px}
+  .slip .meta .l{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#666}
+  .slip .meta .v{font-weight:700;font-size:16px}
+  .slip table{width:100%;border-collapse:collapse;font-size:14px}
+  .slip th{border-bottom:1.5px solid #111;color:#111;text-transform:uppercase;font-size:11px;letter-spacing:.08em;text-align:left;padding:8px 6px}
+  .slip td{border-bottom:1px solid #ddd;padding:9px 6px;color:#111}
+  .slip td.num,.slip th.num{text-align:right}
+  .slip .tot{margin-top:14px;text-align:right;font-weight:700;font-size:15px}
+  .slip .empty{color:#666;padding:20px 0;text-align:center}
+  @media print{ body *{visibility:hidden}
+    #tagModal,#tagModal *,#slipModal,#slipModal *{visibility:visible}
+    #tagModal,#slipModal{position:absolute;inset:0;background:#fff;display:block}
+    .tag,.slip{box-shadow:none;margin:0 auto} .noprint{display:none} }
+
+  footer.actions{position:fixed;bottom:0;left:0;right:0;background:var(--panel);
+    border-top:1px solid var(--line);padding:10px 18px;display:flex;gap:10px;justify-content:center;z-index:20}
+  .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--panel2);
+    border:1px solid var(--line);color:var(--ink);padding:10px 16px;border-radius:8px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header class="bar">
+  <span class="logo">Duct<b>Tracker</b></span>
+  <span class="spacer"></span>
+  <span id="jobtag" class="jobtag hidden">JOB <b id="jobtagName">—</b></span>
+  <button id="homeBtn" class="btn ghost hidden">All jobs</button>
+</header>
+
+<main id="app"></main>
+<footer id="footer" class="actions hidden"></footer>
+<div id="toast" class="toast"></div>
+
+<!-- pallet tag print modal -->
+<div id="tagModal" class="hidden">
+  <div>
+    <div class="tag">
+      <img class="tag-logo" id="tagLogo" alt="Brookstone">
+      <h3 id="tagId">PALLET</h3>
+      <div class="job" id="tagJob">job</div>
+      <div id="qrbox"></div>
+      <div class="manifest" id="tagManifest"></div>
+    </div>
+    <div class="row noprint" style="justify-content:center;margin-top:14px">
+      <button class="btn" onclick="closeTag()">Close</button>
+      <button class="btn primary" onclick="window.print()">Print tag</button>
+    </div>
+  </div>
+</div>
+
+<!-- packing slip print modal -->
+<div id="slipModal" class="hidden">
+  <div>
+    <div class="slip" id="slipDoc"></div>
+    <div class="row noprint" style="justify-content:center;margin-top:14px">
+      <button class="btn" onclick="closeSlip()">Close</button>
+      <button class="btn primary" onclick="window.print()">Print slip</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   Duct Tracker — phase one (single station, file handoff)
+   Storage is isolated in the Store object so it can be swapped for a
+   Cloudflare Worker + D1 later without touching ingest or scan logic.
+   ========================================================================= */
+
+const LOGO_URI="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMiIgZGF0YS1uYW1lPSJMYXllciAyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MjQuMTIgODI0LjEyIj4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmNscy0xIHsKICAgICAgICBmb250LWZhbWlseTogTWFudWZha3R1ci1VbHRyYUV4cGFuZGVkQmxhY2ssIE1hbnVmYWt0dXI7CiAgICAgICAgZm9udC1zaXplOiA0OC4yN3B4OwogICAgICAgIGZvbnQtd2VpZ2h0OiA4MDA7CiAgICAgIH0KCiAgICAgIC5jbHMtMSwgLmNscy0yIHsKICAgICAgICBmaWxsOiAjMTYzMTU4OwogICAgICB9CiAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIj4KICAgIDxnPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik00NjcuNDIsMzYzLjc0aC0xMDMuNjF2MzEuMzZoMTAzLjYxYzguNTMsMCwxNi4wNi02Ljc4LDE2LjA2LTE1LjhzLTcuNTItMTUuNTYtMTYuMDYtMTUuNTZaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMiIgZD0iTTYxOS4zOSw0NTUuNjdjLS41Ni0xLjg2LTI0LjU4LTE2LjgtMjktMjAuNTMtMTAuMzctOC43NS0xMi43Ny0yNC4zLTcuMDktMzYuMjQuNC0uODUsMS0xLjU5LDEuNzItMi4yLDkuMjgtNy43NywyMi4xMi0xMy42LDMwLjkyLTIxLjQxLDIuMDktMS44NSwzLjkyLTMuNjgsMy42Ni02Ljc0bC0xMy4wMi0zOS4wM2MtLjg0LTIuNTEtMy4wOC00LjI4LTUuNzItNC41MmgtLjA2Yy05LjI3LS44NC0yMi4zOCwxLjQxLTMxLjk4LDEuNjYtMTUuNDEuNC0yOC40OS0yMS4wMy0yNy4zLTI3LjE5LDIuMTEtMTAuOSwxMS43My0yNS43OSwxMy4yLTM3LjE0LjI5LTIuMjguMy0zLjY2LS4wNS00Ljc5LjMzLTIuMjgtLjc2LTMuODctMi4zNC01LjUyLTQuNi00Ljg0LTE5Ljk4LTE1LjMzLTI2LjE2LTE5LjM4LTYuNDktNC4yNS04LjI0LTcuMjgtMTYuMTctMi44Ny05LjE4LDUuMS0yMy42NCwyMS4zNy0zMiwyMy4xMi03LjU4LDEuNTgtMjMuODktMi45OS0yOC42LTkuODYtMy4zMS04LjM2LTguOTktMzQuNzctMTItMzguNy0uMTItLjI4LS4yMS0uNTctLjMzLS44NS0xLjY5LTIuNjktNi4yOC0zLjQ1LTkuNDYtMy42NS05LjE3LTIuMTgtMjAuMjYtMS4xMy0yOC4yNC4wNS0yLjUyLjA0LTUuMDMuMDYtNy41MSwwLTIuMjMtLjA2LTQuNDIuOTEtNS42MiwyLjc5LS4zLjQ3LS41OCwxLjAxLS44NywxLjY3LTQuNjIsMTAuNzMtNS45NywyNS45MS0xMC41MywzNi41Ny0yLjk3LDYuOTMtMTkuMDIsMTEuNzQtMjYuMDgsMTIuODEtMS43Mi4yNi0zLjQ3LS4yMS00Ljg3LTEuMjZsLTMzLjM3LTI0LjgxYy0yLjU4LTEuNjMtNC40NS0uNjQtNi44MS41MS01Ljk1LDIuODktMjUuNDIsMTcuNTgtMzEuMTYsMjIuMzYtMS45NSwxLjYzLTQuNSwzLjQyLTQuMTIsNi4yOGwyLjM0LDYuNTcsMTAuMjQsMzAuMzdjLjIyLjY3LjU3LDEuMjUuOTYsMS43OC4yLDEuNjcuMjIsMy4zNi0uMDksNS4wMi0uNSwyLjc0LTkuNDQsMTQuNDEtMTEuNzksMTYuOTYtMS43NiwxLjkxLTQuMzksNC40Ni03LDQuOTktMTEuMzUsMi4zMS0yOS4yMS0xLjI1LTQxLjQxLjE3LS4zOS4wNS0uODUuMjEtMS4zNS40Ni0yLjM5LDEuMTctNC4xMSwzLjM4LTQuOTMsNS45MS0zLjQ1LDEwLjYyLTEyLjg3LDMyLjMtMTAuNzMsMzkuMzcuNTYsMS44NiwyNC41OCwxNi44LDI5LDIwLjUzLDEwLjM3LDguNzUsMTIuNzcsMjQuMyw3LjA5LDM2LjI0LS40Ljg1LTEsMS41OS0xLjcyLDIuMi05LjI4LDcuNzctMjIuMTIsMTMuNi0zMC45MiwyMS40MS0yLjA5LDEuODUtMy45MiwzLjY4LTMuNjYsNi43NGwxMy4wMiwzOS4wM2MuODQsMi41MSwzLjA4LDQuMjgsNS43Miw0LjUyaC4wNmM5LjI3Ljg0LDIyLjM4LTEuNDEsMzEuOTgtMS42NiwxNS40MS0uNCwyOC40OSwyMS4wMywyNy4zLDI3LjE5LTIuMTEsMTAuOS0xMS43MywyNS43OS0xMy4yLDM3LjE0LS4yOSwyLjI4LS4zLDMuNjYuMDUsNC43OS0uMzMsMi4yOC43NiwzLjg3LDIuMzQsNS41Miw0LjYsNC44NCwxOS45OCwxNS4zMywyNi4xNiwxOS4zOCw2LjQ5LDQuMjUsOC4yNCw3LjI4LDE2LjE3LDIuODcsOS4xOC01LjEsMjMuNjQtMjEuMzcsMzItMjMuMTIsNy41OC0xLjU4LDIzLjg5LDIuOTksMjguNiw5Ljg2LDMuMzEsOC4zNiw4Ljk5LDM0Ljc3LDEyLDM4LjcuMTIuMjguMjEuNTcuMzMuODUsMS42OSwyLjY5LDYuMjgsMy40NSw5LjQ2LDMuNjUsOS4xNywyLjE4LDIwLjI2LDEuMTMsMjguMjQtLjA1LDIuNTItLjA0LDUuMDMtLjA2LDcuNTEsMCwyLjIzLjA2LDQuNDItLjkxLDUuNjItMi43OS4zLS40Ny41OC0xLjAxLjg3LTEuNjcsNC42Mi0xMC43Myw1Ljk3LTI1LjkxLDEwLjUzLTM2LjU3LDIuOTctNi45MywxOS4wMi0xMS43NCwyNi4wOC0xMi44MSwxLjcyLS4yNiwzLjQ3LjIxLDQuODcsMS4yNmwzMy4zNywyNC44MWMyLjU4LDEuNjMsNC40NS42NCw2LjgxLS41MSw1Ljk1LTIuODksMjUuNDItMTcuNTgsMzEuMTYtMjIuMzYsMS45NS0xLjYzLDQuNS0zLjQyLDQuMTItNi4yOGwtMi4zNC02LjU3LTEwLjI0LTMwLjM3Yy0uMjMtLjY3LS41Ny0xLjI1LS45Ni0xLjc4LS4yLTEuNjctLjIyLTMuMzYuMDktNS4wMi41LTIuNzQsOS40NC0xNC40MSwxMS43OS0xNi45NiwxLjc2LTEuOTEsNC4zOS00LjQ2LDctNC45OSwxMS4zNS0yLjMxLDI5LjIxLDEuMjUsNDEuNDEtLjE3LjM5LS4wNS44NS0uMjEsMS4zNS0uNDYsMi4zOS0xLjE3LDQuMTEtMy4zOCw0LjkzLTUuOTEsMy40NS0xMC42MiwxMi44Ny0zMi4zLDEwLjczLTM5LjM3Wk00NzguNzEsNDk5LjcyaC0xNzEuODZ2LTE3NS4zN2gxNzEuODZjNjIuNDcuNzUsNzMuNzYsODAuNzksMTcuMzEsODguMDYsNTYuNDUsNi43Nyw0NS4xNiw4Ny4zMS0xNy4zMSw4Ny4zMVoiLz4KICAgICAgPHBhdGggY2xhc3M9ImNscy0yIiBkPSJNNDY3LjQyLDQyOC45N2gtMTAzLjYxdjMyLjM2aDEwMy42MWM4LjUzLDAsMTYuMDYtNy4yOCwxNi4wNi0xNi4wNiwwLTkuMjgtNy41Mi0xNi4zMS0xNi4wNi0xNi4zMVoiLz4KICAgICAgPGc+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjMuNDcgNDQyLjI1KSByb3RhdGUoMTAxLjUpIj48dHNwYW4geD0iMCIgeT0iMCI+QjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjU0LjQ4IDQ4NC44MSkgcm90YXRlKDExMC45OSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NDAuMDggNTIxLjc4KSByb3RhdGUoMTE5LjkzKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlQ8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYyMC44NSA1NTUuMzEpIHJvdGF0ZSgxMjkuMjgpIj48dHNwYW4geD0iMCIgeT0iMCI+VDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTk2LjM3IDU4NS40NCkgcm90YXRlKDEzNy40NSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NjcuMTYgNjEyLjI1KSByb3RhdGUoMTQ2LjkzKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlI8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUyOS45OSA2MzUuMzIpIHJvdGF0ZSgxNTMuODQpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTE0LjU2IDY0Mi44KSByb3RhdGUoMTU3Ljc0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPiA8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ5OS40IDY0OS45OCkgcm90YXRlKDE2NS4xOSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5NPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NTIuMTcgNjYxLjg5KSByb3RhdGUoMTc1LjE0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPkU8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQxMi41OSA2NjUuMDYpIHJvdGF0ZSgtMTc2LjAxKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlQ8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM3NC4wMyA2NjIuNDEpIHJvdGF0ZSgtMTY2LjcpIj48dHNwYW4geD0iMCIgeT0iMCI+QTwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzMxLjggNjUxLjk5KSByb3RhdGUoLTE1Ny41MSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5MPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyOTcuNTkgNjM3LjEpIHJvdGF0ZSgtMTUxLjMyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPiA8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI4Mi42IDYyOC43OSkgcm90YXRlKC0xNDcuNDMpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjY4LjA4IDYyMC4yNykgcm90YXRlKC0xNDAuNzIpIj48dHNwYW4geD0iMCIgeT0iMCI+RjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjM3LjI1IDU5NS4yMikgcm90YXRlKC0xMzEuNykiPjx0c3BhbiB4PSIwIiB5PSIwIj5BPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMDguNTggNTYyLjU2KSByb3RhdGUoLTEyMi4yMikiPjx0c3BhbiB4PSIwIiB5PSIwIj5TPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODcuNTkgNTI4Ljg5KSByb3RhdGUoLTExMy4yOSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5UPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNzIuNDEgNDkzLjMpIHJvdGF0ZSgtMTA0LjQyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPkU8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2Mi41NCA0NTQuODkpIHJvdGF0ZSgtOTUuMDUpIj48dHNwYW4geD0iMCIgeT0iMCI+UjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU5LjYzIDQxMS4yMykgcm90YXRlKC04OC4yMSkiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNjAuMjYgMzk0LjA3KSByb3RhdGUoLTg0LjMyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPiA8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2MS4yNSAzNzcuMjkpIHJvdGF0ZSgtNzcuNDUpIj48dHNwYW4geD0iMCIgeT0iMCI+QjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTcxIDMzNC45NSkgcm90YXRlKC02Ny45NykiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODYuMDcgMjk4LjI0KSByb3RhdGUoLTU5LjA0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPlQ8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIwNi4xNCAyNjUuMTIpIHJvdGF0ZSgtNTAuMzUpIj48dHNwYW4geD0iMCIgeT0iMCI+VDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjMwLjk0IDIzNS4zNikgcm90YXRlKC00MS41MSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNjAuNjMgMjA5LjA5KSByb3RhdGUoLTMyLjAyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlI8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI5OC4yMiAxODYuNykgcm90YXRlKC0yNS4xMSkiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzMTMuODEgMTc5LjUpIHJvdGF0ZSgtMjEuMjEpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzI5LjA4IDE3Mi42MSkgcm90YXRlKC0xMy43NykiPjx0c3BhbiB4PSIwIiB5PSIwIj5NPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNzYuNTEgMTYxLjU2KSByb3RhdGUoLTMuODMpIj48dHNwYW4geD0iMCIgeT0iMCI+RTwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDE2LjExIDE1OS4xKSByb3RhdGUoNS4wMikiPjx0c3BhbiB4PSIwIiB5PSIwIj5UPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NTQuNjUgMTYyLjQ1KSByb3RhdGUoMTQuMzUpIj48dHNwYW4geD0iMCIgeT0iMCI+QTwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDk2LjY5IDE3My42NCkgcm90YXRlKDIzLjU0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPkw8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUzMC42MiAxODkuMTcpIHJvdGF0ZSgyOS43MikiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NDUuNDYgMTk3Ljc0KSByb3RhdGUoMzMuNjEpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTU5LjggMjA2LjY2KSByb3RhdGUoMzkuOTYpIj48dHNwYW4geD0iMCIgeT0iMCI+RjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTkwLjE4IDIzMi4xMSkgcm90YXRlKDQ5LjM0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPkE8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYxOC4yNSAyNjUuMjkpIHJvdGF0ZSg1OC44MykiPjx0c3BhbiB4PSIwIiB5PSIwIj5TPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2MzguNjEgMjk5LjMzKSByb3RhdGUoNjcuNzUpIj48dHNwYW4geD0iMCIgeT0iMCI+VDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjUzLjE1IDMzNS4yMSkgcm90YXRlKDc2LjYyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPkU8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY2Mi4zMiAzNzMuNzgpIHJvdGF0ZSg4NS45OSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5SPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjQuNDQgNDE3LjUpIHJvdGF0ZSg5Mi44MykiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjMuNTEgNDM0LjY0KSByb3RhdGUoOTYuNzIpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjYxLjQxIDQ1MS42OCkgcm90YXRlKDEwMC42MikiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgIDwvZz4KICAgIDwvZz4KICA8L2c+Cjwvc3ZnPg==";
+
+/* ---------- Store (localStorage now; swap this block for a Worker later) -- */
+const Store = {
+  key:'ducttracker.jobs.v1',
+  all(){ try{return JSON.parse(localStorage.getItem(this.key))||{}}catch(e){return {}} },
+  list(){ return Object.values(this.all()).sort((a,b)=>b.createdAt-a.createdAt); },
+  get(name){ return this.all()[name]||null; },
+  save(job){ const a=this.all(); a[job.name]=job; localStorage.setItem(this.key,JSON.stringify(a)); },
+  remove(name){ const a=this.all(); delete a[name]; localStorage.setItem(this.key,JSON.stringify(a)); },
+};
+
+/* ---------- tolerant CSV parser -----------------------------------------
+   A quoted field only CLOSES on a quote that is followed by a comma or the
+   end of the line. That lets CAMduct's inch-marks (e.g. 20") sit inside a
+   quoted description without breaking the field. ------------------------- */
+function parseCSV(text){
+  const rows=[]; const lines=text.replace(/\r\n?/g,'\n').split('\n');
+  for(const line of lines){
+    if(line.trim()==='') continue;
+    const fields=[]; let i=0;
+    while(i<=line.length){
+      let val='';
+      if(line[i]==='"'){                      // quoted field
+        i++;
+        while(i<line.length){
+          if(line[i]==='"' && (line[i+1]===',' || i+1>=line.length)){ i++; break; }
+          val+=line[i++];
+        }
+      } else {                                // bare field
+        while(i<line.length && line[i]!==',') val+=line[i++];
+      }
+      fields.push(val);
+      if(line[i]===','){ i++; if(i>line.length) break; }
+      else break;
+    }
+    rows.push(fields);
+  }
+  return rows;
+}
+
+/* ---------- ingest: CSV rows -> job -------------------------------------- */
+const STOCK_GROUP='STCKCAT';
+function col(headers,names){
+  for(const n of names){ const idx=headers.findIndex(h=>h.trim().toLowerCase()===n); if(idx>=0) return idx; }
+  return -1;
+}
+function buildJobFromCSV(text, jobName){
+  const rows=parseCSV(text);
+  if(!rows.length) throw new Error('Empty file.');
+  const H=rows[0].map(h=>h.trim().toLowerCase());
+  const iGroup=col(H,['epicor group','group']);
+  const iB64  =col(H,['item globally unique id (base64)','base64','item scan code (base64)']);
+  const iGuid =col(H,['item globally unique id','guid']);
+  const iQty  =col(H,['qty','quantity']);
+  const iDesc =col(H,['description','desc']);
+  const iItem =col(H,['item number','item no','itemnumber','item']);
+  const iNotes=col(H,['notes','customer','customer name','ship to']);
+  if(iB64<0) throw new Error('No "Item Globally Unique ID (Base64)" column found — that is the scan key. Re-export with the Base64 column.');
+
+  const items=[]; let excludedLabor=0, excludedZero=0, seq=0, customer='';
+  for(let r=1;r<rows.length;r++){
+    const row=rows[r]; if(!row.length||row.every(c=>c==='')) continue;
+    const group=(row[iGroup]||'').trim();
+    const desc =(row[iDesc]||'').trim();
+    const qty  =parseInt((row[iQty]||'0').trim(),10)||0;
+    const key  =(row[iB64]||'').trim();
+    if(!customer && iNotes>=0 && (row[iNotes]||'').trim()) customer=(row[iNotes]||'').trim();
+    if(/labor/i.test(desc)){ excludedLabor++; continue; }
+    if(qty<=0){ excludedZero++; continue; }
+    seq++;
+    items.push({
+      key, guid:(row[iGuid]||'').trim(),
+      itemNo:(iItem>=0?(row[iItem]||'').trim():'')||String(seq),
+      group, desc:desc||'(no description)', qty,
+      type: group.toUpperCase()===STOCK_GROUP ? 'stock':'fab',
+      onTruck:0            // pieces sent straight to a truck (Loaded)
+    });
+  }
+  const fab=items.filter(i=>i.type==='fab'), stock=items.filter(i=>i.type==='stock');
+  return {
+    name:jobName, createdAt:Date.now(), customer,
+    items, pallets:[], palletSeq:0,
+    _summary:{ fabLines:fab.length, fabPieces:fab.reduce((s,i)=>s+i.qty,0),
+               stockLines:stock.length, excludedLabor, excludedZero }
+  };
+}
+
+/* ---------- per-item accounting helpers ---------------------------------- */
+function palletQtyForKey(job,key,onlyUnloaded){
+  let n=0; for(const p of job.pallets){ if(onlyUnloaded && p.loaded) continue;
+    n+=(p.contents[key]||0); } return n; }
+function accounted(job,it){ return it.onTruck + palletQtyForKey(job,it.key,false); }   // truck + any pallet
+function loadedQty(job,it){ // on a truck directly, or on a pallet that's been loaded
+  let n=it.onTruck; for(const p of job.pallets){ if(p.loaded) n+=(p.contents[it.key]||0); } return n; }
+function remaining(job,it){ return it.qty - accounted(job,it); }
+function itemStatus(job,it){
+  const load=loadedQty(job,it), acc=accounted(job,it);
+  if(load>=it.qty) return 'loaded';
+  if(acc>=it.qty || palletQtyForKey(job,it.key,true)>0) return 'pallet';
+  return 'fab';
+}
+function jobProgress(job){
+  const fab=job.items.filter(i=>i.type==='fab');
+  const total=fab.reduce((s,i)=>s+i.qty,0);
+  const load=fab.reduce((s,i)=>s+loadedQty(job,i),0);
+  return {total, load, pct: total? Math.round(load/total*100):0};
+}
+
+/* ---------- scan-string parsing ------------------------------------------
+   Format from CAMduct QR:  <job name>/<22-char base64 code>
+   Pallet tags we print:    <job name>/P:<palletId>
+   Split on the LAST slash so job names may contain characters freely. ----- */
+function parseScan(raw){
+  const s=raw.trim(); const cut=s.lastIndexOf('/');
+  if(cut<0) return {prefix:'',token:s};
+  return {prefix:s.slice(0,cut), token:s.slice(cut+1)};
+}
+
+/* =========================================================================
+   App state + routing
+   ========================================================================= */
+let view='home', job=null, mode='truck', activePallet=null;
+const appEl=document.getElementById('app');
+const footerEl=document.getElementById('footer');
+
+function go(v){ view=v; render(); }
+function openJob(name){ job=Store.get(name); mode='truck'; activePallet=null; go('scan'); }
+
+function render(){
+  document.getElementById('homeBtn').classList.toggle('hidden', view==='home');
+  document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home');
+  if(job) document.getElementById('jobtagName').textContent=job.name;
+  footerEl.classList.add('hidden'); footerEl.innerHTML='';
+  if(view==='home') renderHome();
+  else if(view==='ingest') renderIngest();
+  else if(view==='scan') renderScan();
+  else if(view==='report') renderReport();
+}
+document.getElementById('homeBtn').onclick=()=>{ job=null; go('home'); };
+
+/* ---------- HOME ---------------------------------------------------------- */
+function renderHome(){
+  const jobs=Store.list();
+  appEl.innerHTML=`
+    <h1>Jobs</h1>
+    <p class="sub">Load a CAMduct export to start tracking a job, or open one already on this computer.</p>
+    <div class="row" style="margin-bottom:18px">
+      <button class="btn primary" id="newJob">New job from CSV</button>
+      <button class="btn" id="openFile">Open job file (.json)</button>
+      <input type="file" id="csvFile" accept=".csv,.CSV" class="hidden">
+      <input type="file" id="jsonFile" accept=".json" class="hidden">
+    </div>
+    ${jobs.length? `<div class="cards">${jobs.map(jobCard).join('')}</div>`
+      : `<div class="drop" id="drop">No jobs yet. Drop a CAMduct <b>.CSV</b> here, or use “New job from CSV”.</div>`}
+  `;
+  document.getElementById('newJob').onclick=()=>document.getElementById('csvFile').click();
+  document.getElementById('openFile').onclick=()=>document.getElementById('jsonFile').click();
+  document.getElementById('csvFile').onchange=e=>loadCSVFile(e.target.files[0]);
+  document.getElementById('jsonFile').onchange=e=>loadJSONFile(e.target.files[0]);
+  const drop=document.getElementById('drop');
+  if(drop) wireDrop(drop);
+  appEl.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openJob(el.dataset.open));
+  appEl.querySelectorAll('[data-export]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();exportJob(el.dataset.export);});
+  appEl.querySelectorAll('[data-del]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();
+    if(confirm('Remove '+el.dataset.del+' from this computer? (the CSV is unaffected)')){Store.remove(el.dataset.del);render();}});
+}
+function jobCard(j){
+  const p=jobProgress(j);
+  return `<div class="card" data-open="${esc(j.name)}" style="cursor:pointer">
+    <div class="name">${esc(j.name)}</div>
+    <div class="meta">${j._summary?j._summary.fabLines:j.items.filter(i=>i.type==='fab').length} fab · ${p.load}/${p.total} loaded · ${j.pallets.length} pallet(s)</div>
+    <div class="bar-wrap"><div class="prog"><i style="width:${p.pct}%"></i></div></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn ghost" data-export="${esc(j.name)}" style="padding:7px 10px;font-size:13px">Export</button>
+      <button class="btn ghost" data-del="${esc(j.name)}" style="padding:7px 10px;font-size:13px">Remove</button>
+    </div>
+  </div>`;
+}
+function wireDrop(el){
+  ['dragenter','dragover'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();el.classList.add('hot');}));
+  ['dragleave','drop'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();el.classList.remove('hot');}));
+  el.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) loadCSVFile(f); });
+}
+
+/* ---------- INGEST -------------------------------------------------------- */
+let pendingCSV=null, pendingName='';
+function loadCSVFile(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{ pendingCSV=reader.result;
+    pendingName=file.name.replace(/\.csv$/i,'').replace(/_/g,' ').trim();
+    go('ingest'); };
+  reader.readAsText(file);
+}
+function loadJSONFile(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{ try{ const j=JSON.parse(reader.result);
+    if(!j.name||!j.items) throw new Error('Not a job file.');
+    Store.save(j); toast('Opened “'+j.name+'”'); render();
+  }catch(err){ alert('Could not open that file: '+err.message);} };
+  reader.readAsText(file);
+}
+function renderIngest(){
+  let job2;
+  try{ job2=buildJobFromCSV(pendingCSV, pendingName||'Untitled job'); }
+  catch(err){ appEl.innerHTML=`<h1>Import problem</h1><p class="sub">${esc(err.message)}</p>
+    <button class="btn" onclick="go('home')">Back</button>`; return; }
+  const s=job2._summary;
+  const exists=!!Store.get(job2.name);
+  appEl.innerHTML=`
+    <h1>New job</h1>
+    <p class="sub">Check the counts, name the job, then create it.</p>
+    <div class="row" style="margin-bottom:20px">
+      <label class="muted" style="font-size:13px">Job name</label>
+      <input type="text" id="jname" value="${esc(job2.name)}" style="min-width:280px">
+      ${job2.customer?`<span class="jobtag">Customer <b>${esc(job2.customer)}</b></span>`:''}
+    </div>
+    <div class="stat">
+      <div><div class="k">${s.fabLines}</div><div class="l">Fab lines</div></div>
+      <div><div class="k">${s.fabPieces}</div><div class="l">Pieces to scan</div></div>
+      <div><div class="k">${s.stockLines}</div><div class="l">Stock items</div></div>
+      <div><div class="k">${s.excludedLabor+s.excludedZero}</div><div class="l">Skipped (labor / qty&nbsp;0)</div></div>
+    </div>
+    <table><thead><tr><th>Item</th><th>Description</th><th>Type</th><th class="num">Qty</th><th>Scan key</th></tr></thead>
+      <tbody>${job2.items.slice(0,60).map(it=>`<tr>
+        <td class="mono">${esc(it.itemNo)}</td><td>${esc(it.desc)}</td>
+        <td><span class="pill ${it.type==='stock'?'stock':'fab'}">${it.type}</span></td>
+        <td class="num mono">${it.qty}</td>
+        <td class="mono muted">${esc(it.key||'—')}</td></tr>`).join('')}
+      </tbody></table>
+    ${job2.items.length>60?`<p class="muted" style="margin-top:8px">…and ${job2.items.length-60} more.</p>`:''}
+    <div class="row" style="margin-top:20px">
+      <button class="btn primary" id="create">${exists?'Replace existing job':'Create job'}</button>
+      <button class="btn ghost" onclick="go('home')">Cancel</button>
+      ${exists?'<span class="muted" style="font-size:13px">A job with this name already exists on this computer.</span>':''}
+    </div>`;
+  document.getElementById('jname').oninput=e=>{ job2.name=e.target.value.trim()||'Untitled job'; };
+  document.getElementById('create').onclick=()=>{
+    job2.name=document.getElementById('jname').value.trim()||'Untitled job';
+    Store.save(job2); openJob(job2.name); toast('Job created');
+  };
+}
+
+/* ---------- SCAN ---------------------------------------------------------- */
+function renderScan(){
+  const p=jobProgress(job);
+  const stock=job.items.filter(i=>i.type==='stock');
+  appEl.innerHTML=`
+    <h1>${esc(job.name)}</h1>
+    <div class="stat">
+      <div><div class="k" id="pctK">${p.pct}%</div><div class="l">Loaded</div></div>
+      <div><div class="k mono">${p.load}/${p.total}</div><div class="l">Pieces</div></div>
+      <div><div class="k mono">${job.pallets.filter(x=>!x.loaded).length}</div><div class="l">Open pallets</div></div>
+    </div>
+
+    <div class="modebar">
+      <button class="modebtn truck ${mode==='truck'?'active':''}" data-mode="truck">▸ Scan onto truck</button>
+      <button class="modebtn pallet ${mode==='pallet'?'active':''}" data-mode="pallet">▸ Scan onto pallet</button>
+    </div>
+
+    <div id="palletStrip">${mode==='pallet'?palletStripHTML():''}</div>
+
+    <div class="scanwrap">
+      <input class="scaninput" id="scan" placeholder="Scan a part or pallet tag…" autocomplete="off" spellcheck="false">
+      <span class="focushint on" id="focushint">Ready</span>
+    </div>
+    <div class="feedback" id="fb">
+      <div class="fbtop">Last scan</div>
+      <div class="fbmain">Scan a label to begin</div>
+      <div class="fbsub">${mode==='truck'?'Parts scanned here go straight onto the truck.':'Parts scanned here go onto the open pallet.'}</div>
+    </div>
+
+    ${stock.length?`<h2>Stock items — enter counts (no label)</h2>
+      <div class="tiles" id="tiles">${stock.map(stockTile).join('')}</div>`:''}
+  `;
+  // mode buttons
+  appEl.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
+    mode=b.dataset.mode;
+    if(mode==='pallet' && !activePallet && job.pallets.filter(p=>!p.loaded).length===0){ newPallet(); }
+    render();
+  });
+  wireStockTiles();
+  // scan input
+  const inp=document.getElementById('scan');
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const v=inp.value; inp.value=''; handleScan(v); }});
+  keepFocus(inp);
+  // footer actions
+  footerEl.classList.remove('hidden');
+  footerEl.innerHTML=`
+    ${mode==='pallet'?`<button class="btn" id="newPallet">New pallet</button>
+      <button class="btn primary" id="printTag" ${activePallet?'':'disabled'}>Print pallet tag</button>`:''}
+    <button class="btn ghost" id="toReport">Job status &amp; shortages</button>`;
+  const np=document.getElementById('newPallet'); if(np) np.onclick=()=>{newPallet();render();};
+  const pt=document.getElementById('printTag'); if(pt) pt.onclick=()=>printTag(activePallet);
+  document.getElementById('toReport').onclick=()=>go('report');
+}
+
+function palletStripHTML(){
+  const open=job.pallets.filter(p=>!p.loaded);
+  return `<div style="margin-bottom:14px">
+    ${open.map(p=>{
+      const n=Object.values(p.contents).reduce((a,b)=>a+b,0);
+      const act=activePallet&&activePallet.id===p.id;
+      return `<div class="palletcard ${act?'active':''}">
+        <div class="ph">
+          <span class="pid">${esc(p.id)}</span>
+          <span class="pill pallet">${n} item(s)</span>
+          <span class="spacer" style="flex:1"></span>
+          ${act?'<span class="muted" style="font-size:13px">scanning here</span>'
+               :`<button class="btn ghost" style="padding:6px 10px;font-size:13px" data-activate="${esc(p.id)}">Scan to this</button>`}
+        </div></div>`;
+    }).join('')}
+  </div>`;
+}
+
+function stockTile(it){
+  const onTruck=it.onTruck, onPallet=palletQtyForKey(job,it.key,false)- (job.pallets.filter(p=>p.loaded).reduce((s,p)=>s+(p.contents[it.key]||0),0));
+  const acc=accounted(job,it), rem=it.qty-acc;
+  const dest = mode==='pallet' ? 'pallet':'truck';
+  return `<div class="tile" data-stock="${esc(it.key)}">
+    <div class="d">${esc(it.desc)}</div>
+    <div class="n">item ${esc(it.itemNo)} · ${acc}/${it.qty} accounted${rem<0?' · OVER':''}</div>
+    <div class="counter">
+      <button data-step="-1">−</button>
+      <span class="v">${dest==='truck'?it.onTruck:(activePallet?(activePallet.contents[it.key]||0):0)}</span>
+      <button data-step="1">+</button>
+      <span class="of">of ${it.qty} · to ${dest}</span>
+    </div></div>`;
+}
+function wireStockTiles(){
+  appEl.querySelectorAll('[data-stock]').forEach(tile=>{
+    const key=tile.dataset.stock;
+    tile.querySelectorAll('[data-step]').forEach(btn=>btn.onclick=()=>{
+      const step=parseInt(btn.dataset.step,10);
+      const it=job.items.find(i=>i.key===key);
+      if(mode==='pallet'){
+        if(!activePallet){ toast('Open a pallet first'); return; }
+        const cur=activePallet.contents[key]||0;
+        const next=Math.max(0,cur+step);
+        // cap so total accounted never exceeds qty
+        if(step>0 && accounted(job,it)>=it.qty){ toast('Already fully accounted'); return; }
+        activePallet.contents[key]=next; if(next===0) delete activePallet.contents[key];
+      } else {
+        if(step>0 && accounted(job,it)>=it.qty){ toast('Already fully accounted'); return; }
+        it.onTruck=Math.max(0,it.onTruck+step);
+      }
+      Store.save(job); render();
+    });
+  });
+  appEl.querySelectorAll('[data-activate]').forEach(b=>b.onclick=()=>{
+    activePallet=job.pallets.find(p=>p.id===b.dataset.activate); render();
+  });
+}
+
+function handleScan(raw){
+  if(!raw.trim()) return;
+  const {prefix,token}=parseScan(raw);
+  // pallet tag?
+  if(/^P:/.test(token)){ return scanPalletTag(token.slice(2)); }
+  // wrong-job guard (only when a prefix is present)
+  if(prefix && prefix!==job.name){
+    return feedback('bad','Wrong job','This label is for “'+prefix+'”','No count changed');
+  }
+  const it=job.items.find(i=>i.key===token);
+  if(!it){ return feedback('bad','Unknown label',token,'Not part of this job'); }
+  if(it.type==='stock'){ return feedback('warn','Stock item — use the count tiles',it.desc,'item '+it.itemNo); }
+  if(accounted(job,it)>=it.qty){
+    return feedback('warn','Already accounted',it.desc,'item '+it.itemNo+' · '+it.qty+' of '+it.qty);
+  }
+  // record the scan
+  if(mode==='pallet'){
+    if(!activePallet){ newPallet(); }
+    activePallet.contents[it.key]=(activePallet.contents[it.key]||0)+1;
+  } else {
+    it.onTruck++;
+  }
+  Store.save(job);
+  const acc=accounted(job,it);
+  feedback('good', it.desc, '', `${acc} of ${it.qty}`, 'item '+it.itemNo+(mode==='pallet'?' → '+activePallet.id:' → truck'));
+  // refresh counts without stealing focus
+  const p=jobProgress(job); const pk=document.getElementById('pctK'); if(pk) pk.textContent=p.pct+'%';
+  if(mode==='pallet'){ const ps=document.getElementById('palletStrip'); if(ps) ps.innerHTML=palletStripHTML();
+    appEl.querySelectorAll('[data-activate]').forEach(b=>b.onclick=()=>{activePallet=job.pallets.find(p=>p.id===b.dataset.activate);render();}); }
+}
+
+function scanPalletTag(id){
+  const p=job.pallets.find(x=>x.id===id);
+  if(!p){ return feedback('bad','Unknown pallet tag',id,'Not found in this job'); }
+  if(mode!=='truck'){ return feedback('warn','Switch to truck mode','to load a pallet',id); }
+  if(p.loaded){ return feedback('warn','Pallet already loaded',id,''); }
+  p.loaded=true; Store.save(job);
+  const n=Object.values(p.contents).reduce((a,b)=>a+b,0);
+  feedback('good','Pallet loaded',id,'',n+' item(s) onto truck');
+  const pk=document.getElementById('pctK'); const pr=jobProgress(job); if(pk)pk.textContent=pr.pct+'%';
+}
+
+function feedback(kind,main,mid,count,sub){
+  const fb=document.getElementById('fb'); if(!fb) return;
+  fb.className='feedback '+kind;
+  fb.innerHTML=`<div class="fbtop">${kind==='good'?'Scanned':kind==='warn'?'Heads up':'Error'}</div>
+    <div class="fbmain">${esc(main)}${mid?' · '+esc(mid):''}</div>
+    ${count?`<div class="fbcount">${esc(count)}</div>`:''}
+    ${sub?`<div class="fbsub">${esc(sub)}</div>`:''}`;
+  beep(kind);
+}
+
+/* ---------- pallets ------------------------------------------------------- */
+function newPallet(){
+  job.palletSeq=(job.palletSeq||0)+1;
+  const id='PLT-'+job.palletSeq;
+  const p={id, contents:{}, loaded:false, createdAt:Date.now()};
+  job.pallets.push(p); activePallet=p; Store.save(job);
+  toast('Started '+id);
+}
+function printTag(p){
+  if(!p){ toast('No open pallet'); return; }
+  const code=job.name+'/P:'+p.id;
+  document.getElementById('tagLogo').src=LOGO_URI;
+  document.getElementById('tagId').textContent=p.id;
+  document.getElementById('tagJob').textContent=job.name;
+  const box=document.getElementById('qrbox'); box.innerHTML='';
+  new QRCode(box,{text:code,width:200,height:200,correctLevel:QRCode.CorrectLevel.M});
+  const lines=Object.entries(p.contents).map(([k,q])=>{
+    const it=job.items.find(i=>i.key===k); return `${q}× ${it?it.desc:k} (item ${it?it.itemNo:'?'})`; });
+  document.getElementById('tagManifest').innerHTML=
+    (lines.length?lines.map(esc).join('<br>'):'(empty)')+`<br><br>${esc(code)}`;
+  document.getElementById('tagModal').classList.remove('hidden');
+}
+function closeTag(){ document.getElementById('tagModal').classList.add('hidden'); refocus(); }
+
+function printSlip(){
+  const delivered=job.items.filter(it=>loadedQty(job,it)>0)
+    .map(it=>({no:it.itemNo, desc:it.desc, qty:loadedQty(job,it)}))
+    .sort((a,b)=>(parseInt(a.no,10)||0)-(parseInt(b.no,10)||0));
+  const totalPieces=delivered.reduce((s,d)=>s+d.qty,0);
+  const date=new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+  const rows=delivered.length
+    ? delivered.map(d=>`<tr><td class="num">${esc(d.no)}</td><td>${esc(d.desc)}</td><td class="num">${d.qty}</td></tr>`).join('')
+    : `<tr><td colspan="3" class="empty">Nothing loaded yet — scan items onto a truck first.</td></tr>`;
+  document.getElementById('slipDoc').innerHTML=`
+    <div class="sh">
+      <div class="brand"><img class="slip-logo" src="${LOGO_URI}" alt="Brookstone">
+        <div class="co">Brookstone Industries<span>Sheet Metal &amp; HVAC Fabrication</span></div></div>
+      <div class="doctype">Packing Slip</div>
+    </div>
+    <div class="meta">
+      <div><div class="l">Job</div><div class="v">${esc(job.name)}</div></div>
+      ${job.customer?`<div><div class="l">Customer</div><div class="v">${esc(job.customer)}</div></div>`:''}
+      <div><div class="l">Date</div><div class="v">${date}</div></div>
+    </div>
+    <table><thead><tr><th class="num">Item</th><th>Description</th><th class="num">Qty</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    ${delivered.length?`<div class="tot">${delivered.length} line(s) · ${totalPieces} piece(s) delivered</div>`:''}`;
+  document.getElementById('slipModal').classList.remove('hidden');
+}
+function closeSlip(){ document.getElementById('slipModal').classList.add('hidden'); refocus(); }
+
+/* ---------- REPORT / shortages ------------------------------------------- */
+function renderReport(){
+  const fab=job.items.filter(i=>i.type==='fab');
+  const stock=job.items.filter(i=>i.type==='stock');
+  const short=job.items.filter(i=>remaining(job,i)>0);
+  const rowFor=it=>{
+    const load=loadedQty(job,it), acc=accounted(job,it), rem=it.qty-acc, st=itemStatus(job,it);
+    const pill= st==='loaded'?'<span class="pill loaded">loaded</span>'
+              : rem>0 && st!=='pallet' ?'<span class="pill short">short '+rem+'</span>'
+              : st==='pallet'?'<span class="pill pallet">on pallet</span>'
+              : '<span class="pill fab">fabricated</span>';
+    return `<tr class="${rem<=0?'done':''}">
+      <td class="mono">${esc(it.itemNo)}</td><td>${esc(it.desc)}</td>
+      <td class="num mono">${it.qty}</td><td class="num mono">${load}</td>
+      <td class="num mono">${rem>0?rem:0}</td><td>${pill}</td></tr>`;
+  };
+  appEl.innerHTML=`
+    <h1>${esc(job.name)} — status</h1>
+    <p class="sub">${job.customer?'Customer: <b>'+esc(job.customer)+'</b> · ':''}Short pieces list the item number so you can look up the size on the shop sheet.</p>
+
+    <h2>Short / not yet loaded (${short.length})</h2>
+    ${short.length?`<table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Loaded</th><th class="num">Short</th><th>Status</th></tr></thead>
+      <tbody>${short.map(rowFor).join('')}</tbody></table>`
+     :`<div class="drop">Nothing short — every piece is accounted for. </div>`}
+
+    <h2>Pallets (${job.pallets.length})</h2>
+    ${job.pallets.length?job.pallets.map(p=>{
+      const n=Object.values(p.contents).reduce((a,b)=>a+b,0);
+      const lines=Object.entries(p.contents).map(([k,q])=>{const it=job.items.find(i=>i.key===k);return `${q}× ${it?it.desc:k}`;});
+      return `<div class="palletcard"><div class="ph"><span class="pid">${esc(p.id)}</span>
+        ${p.loaded?'<span class="pill loaded">loaded</span>':'<span class="pill pallet">open</span>'}
+        <span class="pill">${n} item(s)</span></div>
+        <div class="n mono" style="color:var(--muted);margin-top:8px;font-size:12px">${lines.map(esc).join(' · ')||'empty'}</div></div>`;
+    }).join(''):'<p class="muted">No pallets built.</p>'}
+
+    <h2>All fabricated items (${fab.length})</h2>
+    <table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Loaded</th><th class="num">Short</th><th>Status</th></tr></thead>
+      <tbody>${fab.map(rowFor).join('')}</tbody></table>
+
+    ${stock.length?`<h2>Stock (${stock.length})</h2>
+    <table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Counted</th></tr></thead>
+      <tbody>${stock.map(it=>`<tr><td class="mono">${esc(it.itemNo)}</td><td>${esc(it.desc)}</td>
+        <td class="num mono">${it.qty}</td><td class="num mono">${accounted(job,it)}</td></tr>`).join('')}</tbody></table>`:''}
+  `;
+  footerEl.classList.remove('hidden');
+  footerEl.innerHTML=`<button class="btn primary" id="slip">Packing slip</button>
+    <button class="btn" id="back">Back to scanning</button>
+    <button class="btn ghost" id="exp">Export job file</button>`;
+  document.getElementById('slip').onclick=()=>printSlip();
+  document.getElementById('back').onclick=()=>go('scan');
+  document.getElementById('exp').onclick=()=>exportJob(job.name);
+}
+
+/* ---------- export -------------------------------------------------------- */
+function exportJob(name){
+  const j=Store.get(name); if(!j) return;
+  const blob=new Blob([JSON.stringify(j,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name.replace(/[^\w.-]+/g,'_')+'.json'; a.click();
+  toast('Exported '+a.download);
+}
+
+/* ---------- focus keeping + feedback beep + helpers ---------------------- */
+let focusTimer=null;
+function keepFocus(inp){
+  inp.focus();
+  const hint=document.getElementById('focushint');
+  const set=on=>{ if(!hint) return; hint.textContent=on?'Ready':'Tap to resume'; hint.className='focushint '+(on?'on':'off'); };
+  inp.addEventListener('blur',()=>{ set(false);
+    clearTimeout(focusTimer); focusTimer=setTimeout(()=>{ if(view==='scan' && document.getElementById('tagModal').classList.contains('hidden')) inp.focus(); },120); });
+  inp.addEventListener('focus',()=>set(true));
+  document.addEventListener('click',e=>{ if(view!=='scan') return;
+    if(!e.target.closest('button') && !e.target.closest('input') && document.getElementById('tagModal').classList.contains('hidden')) inp.focus(); });
+}
+function refocus(){ const i=document.getElementById('scan'); if(i) i.focus(); }
+let actx=null;
+function beep(kind){
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain(); o.connect(g); g.connect(actx.destination);
+    const now=actx.currentTime;
+    if(kind==='good'){ o.frequency.value=880; g.gain.setValueAtTime(.15,now); o.start(now); o.stop(now+.09); }
+    else if(kind==='warn'){ o.frequency.value=520; g.gain.setValueAtTime(.15,now); o.start(now); o.stop(now+.16); }
+    else { o.frequency.value=200; g.gain.setValueAtTime(.2,now); o.start(now); o.stop(now+.28); }
+    g.gain.exponentialRampToValueAtTime(.0001, now+.3);
+  }catch(e){}
+}
+let toastTimer=null;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+render();
+</script>
+</body>
+</html>
