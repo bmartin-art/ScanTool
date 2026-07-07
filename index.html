@@ -175,7 +175,7 @@
 <header class="bar">
   <span class="logo">Duct<b>Tracker</b></span>
   <span class="spacer"></span>
-  <span id="jobtag" class="jobtag hidden">JOB <b id="jobtagName">—</b></span>
+  <span id="jobtag" class="jobtag hidden">ORDER <b id="jobtagName">—</b></span>
   <button id="homeBtn" class="btn ghost hidden">All jobs</button>
 </header>
 
@@ -330,9 +330,10 @@ function buildJobFromCSV(text, jobName){
   const iDesc =col(H,['description','desc']);
   const iItem =col(H,['item number','item no','itemnumber','item']);
   const iNotes=col(H,['notes','customer','customer name','ship to']);
+  const iOrder=col(H,['order number','order no','order #','order']);
   if(iB64<0) throw new Error('No "Item Globally Unique ID (Base64)" column found — that is the scan key. Re-export with the Base64 column.');
 
-  const items=[]; let excludedLabor=0, excludedZero=0, seq=0, customer='';
+  const items=[]; let excludedLabor=0, excludedZero=0, seq=0, customer='', orderNo='';
   for(let r=1;r<rows.length;r++){
     const row=rows[r]; if(!row.length||row.every(c=>c==='')) continue;
     const group=(row[iGroup]||'').trim();
@@ -340,6 +341,7 @@ function buildJobFromCSV(text, jobName){
     const qty  =parseInt((row[iQty]||'0').trim(),10)||0;
     const key  =(row[iB64]||'').trim();
     if(!customer && iNotes>=0 && (row[iNotes]||'').trim()) customer=(row[iNotes]||'').trim();
+    if(!orderNo && iOrder>=0 && (row[iOrder]||'').trim()) orderNo=(row[iOrder]||'').trim();
     if(/labor/i.test(desc)){ excludedLabor++; continue; }
     if(qty<=0){ excludedZero++; continue; }
     seq++;
@@ -353,7 +355,9 @@ function buildJobFromCSV(text, jobName){
   }
   const fab=items.filter(i=>i.type==='fab'), stock=items.filter(i=>i.type==='stock');
   return {
-    name:jobName, createdAt:Date.now(), customer,
+    name: orderNo || jobName,          // storage key: order number is unique; job names can collide
+    orderNo, customer, title:jobName,  // display fields
+    createdAt:Date.now(),
     items, pallets:[], palletSeq:0,
     _summary:{ fabLines:fab.length, fabPieces:fab.reduce((s,i)=>s+i.qty,0),
                stockLines:stock.length, excludedLabor, excludedZero }
@@ -404,7 +408,7 @@ async function openJob(name){ await Store.refresh(name); job=Store.get(name); mo
 function render(){
   document.getElementById('homeBtn').classList.toggle('hidden', view==='home'||view==='settings');
   document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home'||view==='settings');
-  if(job) document.getElementById('jobtagName').textContent=job.name;
+  if(job) document.getElementById('jobtagName').textContent=job.orderNo||job.name;
   footerEl.classList.add('hidden'); footerEl.innerHTML='';
   if(view==='home') renderHome();
   else if(view==='ingest') renderIngest();
@@ -472,8 +476,10 @@ function renderHome(){
 }
 function jobCard(j){
   const p=jobProgress(j);
+  const sub=[j.orderNo?('Order #'+j.orderNo):'', j.title&&j.title!==j.name?j.title:''].filter(Boolean).join(' · ');
   return `<div class="card" data-open="${esc(j.name)}" style="cursor:pointer">
-    <div class="name">${esc(j.name)}</div>
+    <div class="name">${esc(j.customer||j.title||j.name)}</div>
+    ${sub?`<div class="meta" style="margin-bottom:6px">${esc(sub)}</div>`:''}
     <div class="meta">${j._summary?j._summary.fabLines:j.items.filter(i=>i.type==='fab').length} fab · ${p.load}/${p.total} loaded · ${j.pallets.length} pallet(s)</div>
     <div class="bar-wrap"><div class="prog"><i style="width:${p.pct}%"></i></div></div>
     <div class="row" style="margin-top:12px">
@@ -515,12 +521,15 @@ function renderIngest(){
   const s=job2._summary;
   const exists=!!Store.get(job2.name);
   appEl.innerHTML=`
-    <h1>New job</h1>
-    <p class="sub">Check the counts, name the job, then create it.</p>
+    <h1>New order</h1>
+    <p class="sub">Check the counts, confirm the site name, then create it.</p>
+    <div class="row" style="margin-bottom:14px">
+      ${job2.customer?`<span class="jobtag" style="font-size:15px">Customer <b>${esc(job2.customer)}</b></span>`:''}
+      ${job2.orderNo?`<span class="jobtag" style="font-size:15px">Order <b>#${esc(job2.orderNo)}</b></span>`:''}
+    </div>
     <div class="row" style="margin-bottom:20px">
-      <label class="muted" style="font-size:13px">Job name</label>
-      <input type="text" id="jname" value="${esc(job2.name)}" style="min-width:280px">
-      ${job2.customer?`<span class="jobtag">Customer <b>${esc(job2.customer)}</b></span>`:''}
+      <label class="muted" style="font-size:13px">${job2.orderNo?'Site / job name':'Job name'}</label>
+      <input type="text" id="jname" value="${esc(job2.title)}" style="min-width:280px">
     </div>
     <div class="stat">
       <div><div class="k">${s.fabLines}</div><div class="l">Fab lines</div></div>
@@ -537,14 +546,15 @@ function renderIngest(){
       </tbody></table>
     ${job2.items.length>60?`<p class="muted" style="margin-top:8px">…and ${job2.items.length-60} more.</p>`:''}
     <div class="row" style="margin-top:20px">
-      <button class="btn primary" id="create">${exists?'Replace existing job':'Create job'}</button>
+      <button class="btn primary" id="create">${exists?'Replace existing order':'Create order'}</button>
       <button class="btn ghost" onclick="go('home')">Cancel</button>
-      ${exists?'<span class="muted" style="font-size:13px">A job with this name already exists on this computer.</span>':''}
+      ${exists?'<span class="muted" style="font-size:13px">Order #'+esc(job2.orderNo||job2.name)+' already exists — creating will replace it (and reset its scan progress).</span>':''}
     </div>`;
-  document.getElementById('jname').oninput=e=>{ job2.name=e.target.value.trim()||'Untitled job'; };
+  document.getElementById('jname').oninput=e=>{ job2.title=e.target.value.trim()||'Untitled'; if(!job2.orderNo) job2.name=job2.title; };
   document.getElementById('create').onclick=()=>{
-    job2.name=document.getElementById('jname').value.trim()||'Untitled job';
-    Store.save(job2); openJob(job2.name); toast('Job created');
+    job2.title=document.getElementById('jname').value.trim()||'Untitled';
+    if(!job2.orderNo) job2.name=job2.title;
+    Store.save(job2); openJob(job2.name); toast('Order created');
   };
 }
 
@@ -553,7 +563,8 @@ function renderScan(){
   const p=jobProgress(job);
   const stock=job.items.filter(i=>i.type==='stock');
   appEl.innerHTML=`
-    <h1>${esc(job.name)}</h1>
+    <h1>${esc(job.customer||job.title||job.name)}</h1>
+    <p class="sub" style="margin:-2px 0 16px">${[job.orderNo?('Order #'+esc(job.orderNo)):'', job.title&&job.title!==job.name?esc(job.title):''].filter(Boolean).join(' · ')}</p>
     <div class="stat">
       <div><div class="k" id="pctK">${p.pct}%</div><div class="l">Loaded</div></div>
       <div><div class="k mono">${p.load}/${p.total}</div><div class="l">Pieces</div></div>
@@ -661,15 +672,13 @@ function wireStockTiles(){
 
 function handleScan(raw){
   if(!raw.trim()) return;
-  const {prefix,token}=parseScan(raw);
+  const {token}=parseScan(raw);
   // pallet tag?
   if(/^P:/.test(token)){ return scanPalletTag(token.slice(2)); }
-  // wrong-job guard (only when a prefix is present)
-  if(prefix && prefix!==job.name){
-    return feedback('bad','Wrong job','This label is for “'+prefix+'”','No count changed');
-  }
+  // Every fabricated item carries a globally-unique code, so a label from another
+  // order simply won't be found here — no name-based guard needed.
   const it=job.items.find(i=>i.key===token);
-  if(!it){ return feedback('bad','Unknown label',token,'Not part of this job'); }
+  if(!it){ return feedback('bad','Not this order',token,'That label isn’t part of this order'); }
   if(it.type==='stock'){ return feedback('warn','Stock item — use the count tiles',it.desc,'item '+it.itemNo); }
   if(accounted(job,it)>=it.qty){
     return feedback('warn','Already accounted',it.desc,'item '+it.itemNo+' · '+it.qty+' of '+it.qty);
@@ -751,8 +760,9 @@ function printSlip(){
       <div class="doctype">Packing Slip</div>
     </div>
     <div class="meta">
-      <div><div class="l">Job</div><div class="v">${esc(job.name)}</div></div>
       ${job.customer?`<div><div class="l">Customer</div><div class="v">${esc(job.customer)}</div></div>`:''}
+      ${job.orderNo?`<div><div class="l">Order #</div><div class="v">${esc(job.orderNo)}</div></div>`:''}
+      ${job.title&&job.title!==job.name?`<div><div class="l">Job</div><div class="v">${esc(job.title)}</div></div>`:''}
       <div><div class="l">Date</div><div class="v">${date}</div></div>
     </div>
     <table><thead><tr><th class="num">Item</th><th>Description</th><th class="num">Qty</th></tr></thead>
@@ -779,8 +789,8 @@ function renderReport(){
       <td class="num mono">${rem>0?rem:0}</td><td>${pill}</td></tr>`;
   };
   appEl.innerHTML=`
-    <h1>${esc(job.name)} — status</h1>
-    <p class="sub">${job.customer?'Customer: <b>'+esc(job.customer)+'</b> · ':''}Short pieces list the item number so you can look up the size on the shop sheet.</p>
+    <h1>${esc(job.customer||job.title||job.name)} — status</h1>
+    <p class="sub">${job.orderNo?'Order #<b>'+esc(job.orderNo)+'</b> · ':''}${job.title&&job.title!==job.name?esc(job.title)+' · ':''}Short pieces list the item number so you can look up the size on the shop sheet.</p>
 
     <h2>Short / not yet loaded (${short.length})</h2>
     ${short.length?`<table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Loaded</th><th class="num">Short</th><th>Status</th></tr></thead>
