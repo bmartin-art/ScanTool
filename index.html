@@ -85,6 +85,16 @@
     font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
   .focushint.on{color:var(--good)} .focushint.off{color:var(--bad)}
 
+  /* manual entry (bad-label fallback) */
+  .manual{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .manrow{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .manfield{display:flex;flex-direction:column;gap:6px}
+  .manfield label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .manfield input{font-family:var(--mono);font-size:20px;padding:12px;background:#0e1116;border:1px solid var(--line);border-radius:8px;color:var(--ink)}
+  .manfield input:focus{outline:none;border-color:var(--amber)}
+  .maninfo{margin-top:10px;font-size:14px;color:var(--muted)}
+  .maninfo.good{color:#7ee0a2} .maninfo.bad{color:#f0a3a3}
+
   /* the signature: big scan feedback slab */
   .feedback{margin-top:14px;border-radius:14px;padding:22px 22px;min-height:132px;
     display:flex;flex-direction:column;justify-content:center;border:1px solid var(--line);
@@ -560,6 +570,7 @@ function renderIngest(){
 
 /* ---------- SCAN ---------------------------------------------------------- */
 function renderScan(){
+  manualOpen=false;
   const p=jobProgress(job);
   const stock=job.items.filter(i=>i.type==='stock');
   appEl.innerHTML=`
@@ -582,6 +593,10 @@ function renderScan(){
       <input class="scaninput" id="scan" placeholder="Scan a part or pallet tag…" autocomplete="off" spellcheck="false">
       <span class="focushint on" id="focushint">Ready</span>
     </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn ghost" id="manualBtn" style="font-size:14px">⌨ Type it in (bad label)</button>
+    </div>
+    <div id="manualPanel" class="manual hidden"></div>
     <div class="feedback" id="fb">
       <div class="fbtop">Last scan</div>
       <div class="fbmain">Scan a label to begin</div>
@@ -602,6 +617,7 @@ function renderScan(){
   const inp=document.getElementById('scan');
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const v=inp.value; inp.value=''; handleScan(v); }});
   keepFocus(inp);
+  document.getElementById('manualBtn').onclick=()=>toggleManual();
   // footer actions
   footerEl.classList.remove('hidden');
   footerEl.innerHTML=`
@@ -668,6 +684,63 @@ function wireStockTiles(){
   appEl.querySelectorAll('[data-activate]').forEach(b=>b.onclick=()=>{
     activePallet=job.pallets.find(p=>p.id===b.dataset.activate); render();
   });
+}
+
+let manualOpen=false;
+function toggleManual(){
+  manualOpen=!manualOpen;
+  const panel=document.getElementById('manualPanel');
+  const btn=document.getElementById('manualBtn');
+  if(!manualOpen){ panel.classList.add('hidden'); panel.innerHTML=''; btn.classList.remove('primary');
+    const s=document.getElementById('scan'); if(s) s.focus(); return; }
+  btn.classList.add('primary');
+  const dest = mode==='pallet' ? (activePallet?('pallet '+activePallet.id):'a pallet (none open)') : 'truck';
+  panel.innerHTML=`
+    <div class="manrow">
+      <div class="manfield" style="flex:0 0 120px">
+        <label>Item #</label>
+        <input type="text" id="mItem" inputmode="numeric" autocomplete="off" placeholder="e.g. 5">
+      </div>
+      <div class="manfield" style="flex:0 0 110px">
+        <label>How many</label>
+        <input type="text" id="mQty" inputmode="numeric" autocomplete="off" value="1">
+      </div>
+      <button class="btn primary" id="mAdd" style="align-self:flex-end">Add to ${esc(dest)}</button>
+    </div>
+    <div class="maninfo" id="mInfo">Type the item number from the label.</div>`;
+  panel.classList.remove('hidden');
+  const item=document.getElementById('mItem'), qty=document.getElementById('mQty'), info=document.getElementById('mInfo');
+  const look=()=>{
+    const v=item.value.trim();
+    if(!v){ info.className='maninfo'; info.textContent='Type the item number from the label.'; return null; }
+    const it=job.items.find(i=>String(i.itemNo)===v && i.type==='fab');
+    if(!it){ info.className='maninfo bad'; info.textContent='No fabricated item #'+v+' in this order.'; return null; }
+    const rem=remaining(job,it);
+    info.className='maninfo good';
+    info.textContent=it.desc+' — '+accounted(job,it)+' of '+it.qty+' accounted'+(rem>0?(' · '+rem+' left'):' · complete');
+    return it;
+  };
+  item.addEventListener('input',look);
+  item.focus();
+  document.getElementById('mAdd').onclick=()=>{
+    const it=look(); if(!it){ item.focus(); return; }
+    let n=parseInt(qty.value.trim(),10); if(!n||n<1) n=1;
+    const rem=remaining(job,it);
+    if(rem<=0){ feedback('warn','Already accounted',it.desc,'item '+it.itemNo+' · '+it.qty+' of '+it.qty); return; }
+    if(n>rem){ n=rem; toast('Capped at '+rem+' remaining'); }
+    if(mode==='pallet'){ if(!activePallet) newPallet();
+      activePallet.contents[it.key]=(activePallet.contents[it.key]||0)+n; }
+    else { it.onTruck+=n; }
+    Store.save(job);
+    feedback('good', it.desc, '', accounted(job,it)+' of '+it.qty,
+      'item '+it.itemNo+' · +'+n+' by hand'+(mode==='pallet'?' → '+activePallet.id:' → truck'));
+    item.value=''; qty.value='1'; info.className='maninfo'; info.textContent='Added. Next item # if needed.';
+    const pk=document.getElementById('pctK'); const pr=jobProgress(job); if(pk)pk.textContent=pr.pct+'%';
+    if(mode==='pallet'){ const ps=document.getElementById('palletStrip'); if(ps) ps.innerHTML=palletStripHTML();
+      appEl.querySelectorAll('[data-activate]').forEach(b=>b.onclick=()=>{activePallet=job.pallets.find(p=>p.id===b.dataset.activate);render();}); }
+    item.focus();
+  };
+  qty.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('mAdd').click(); });
 }
 
 function handleScan(raw){
@@ -841,9 +914,9 @@ function keepFocus(inp){
   const hint=document.getElementById('focushint');
   const set=on=>{ if(!hint) return; hint.textContent=on?'Ready':'Tap to resume'; hint.className='focushint '+(on?'on':'off'); };
   inp.addEventListener('blur',()=>{ set(false);
-    clearTimeout(focusTimer); focusTimer=setTimeout(()=>{ if(view==='scan' && document.getElementById('tagModal').classList.contains('hidden')) inp.focus(); },120); });
+    clearTimeout(focusTimer); focusTimer=setTimeout(()=>{ if(view==='scan' && !manualOpen && document.getElementById('tagModal').classList.contains('hidden')) inp.focus(); },120); });
   inp.addEventListener('focus',()=>set(true));
-  document.addEventListener('click',e=>{ if(view!=='scan') return;
+  document.addEventListener('click',e=>{ if(view!=='scan'||manualOpen) return;
     if(!e.target.closest('button') && !e.target.closest('input') && document.getElementById('tagModal').classList.contains('hidden')) inp.focus(); });
 }
 function refocus(){ const i=document.getElementById('scan'); if(i) i.focus(); }
