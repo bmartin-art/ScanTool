@@ -355,13 +355,25 @@ function buildJobFromCSV(text, jobName){
     if(/labor/i.test(desc)){ excludedLabor++; continue; }
     if(qty<=0){ excludedZero++; continue; }
     seq++;
-    items.push({
-      key, guid:(row[iGuid]||'').trim(),
-      itemNo:(iItem>=0?(row[iItem]||'').trim():'')||String(seq),
-      group, desc:desc||'(no description)', qty,
-      type: group.toUpperCase()===STOCK_GROUP ? 'stock':'fab',
-      onTruck:0            // pieces sent straight to a truck (Loaded)
-    });
+    const itemNoRaw=(iItem>=0?(row[iItem]||'').trim():'')||String(seq);
+    const type = group.toUpperCase()===STOCK_GROUP ? 'stock':'fab';
+    const guid=(row[iGuid]||'').trim();
+    // CAMduct sometimes merges several distinct items onto one row — multiple
+    // GUIDs (and item numbers) comma-separated in a single field. Each GUID is
+    // its own physical label, so split them back into separate items.
+    const keys=key.split(',').map(s=>s.trim()).filter(Boolean);
+    const nums=itemNoRaw.split(',').map(s=>s.trim()).filter(Boolean);
+    if(type==='stock' || keys.length<=1){
+      items.push({ key, guid, itemNo:itemNoRaw, group,
+        desc:desc||'(no description)', qty, type, onTruck:0 });
+    } else {
+      const per=Math.floor(qty/keys.length), extra=qty-per*keys.length;
+      keys.forEach((k,idx)=>{
+        const q=per+(idx<extra?1:0); if(q<=0) return;
+        items.push({ key:k, guid:'', itemNo: nums[idx]||(itemNoRaw+'.'+(idx+1)),
+          group, desc:desc||'(no description)', qty:q, type, onTruck:0 });
+      });
+    }
   }
   const fab=items.filter(i=>i.type==='fab'), stock=items.filter(i=>i.type==='stock');
   return {
