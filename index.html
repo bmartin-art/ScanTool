@@ -195,6 +195,36 @@
   .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--panel2);
     border:1px solid var(--line);color:var(--ink);padding:10px 16px;border-radius:8px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s}
   .toast.show{opacity:1}
+  @media (max-width:560px){
+    main{padding:16px 12px 132px}
+    .bar{padding:10px 12px;gap:8px}
+    .logo{font-size:13px;letter-spacing:.1em}
+    .live{gap:0;font-size:0}                 /* keep the pulsing dot, drop the word */
+    .jobtag{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 8px;font-size:12px}
+    #homeBtn{padding:9px 11px;font-size:13px}
+    h1{font-size:21px}
+    .cards,.tiles{grid-template-columns:1fr;gap:12px}
+    .card{padding:14px}
+    .card:active{border-color:var(--amber)}
+    .stat{gap:16px}
+    .stat .k{font-size:22px}
+    .modebtn{font-size:14px;padding:12px 8px}
+    .scaninput{font-size:18px}
+    .feedback{padding:18px 16px;min-height:120px}
+    .feedback .fbmain{font-size:24px}
+    .feedback .fbcount{font-size:38px}
+    table{font-size:12.5px}
+    th,td{padding:7px 6px}
+    .actions{flex-wrap:wrap;padding:8px 10px;gap:8px}
+    .actions .btn{flex:1 1 auto;font-size:14px;padding:12px 10px}
+    .locinput{max-width:none;width:100%}
+    .locrow{flex-wrap:wrap}
+    .manrow{gap:8px}
+    .manfield{flex:1 1 40%}
+    .manfield input{font-size:18px}
+    .slip{padding:22px 18px}
+    .tag{width:290px}
+  }
 </style>
 </head>
 <body>
@@ -203,7 +233,7 @@
   <span id="liveDot" class="live hidden"><i></i>live</span>
   <span class="spacer"></span>
   <span id="jobtag" class="jobtag hidden">ORDER <b id="jobtagName">—</b></span>
-  <button id="homeBtn" class="btn ghost hidden">All jobs</button>
+  <button id="homeBtn" class="btn ghost hidden">← Orders</button>
 </header>
 
 <main id="app"></main>
@@ -651,7 +681,7 @@ function renderScan(){
     <div id="palletStrip">${mode==='pallet'?palletStripHTML():''}</div>
 
     <div class="scanwrap">
-      <input class="scaninput" id="scan" placeholder="Scan a part or pallet tag…" autocomplete="off" spellcheck="false">
+      <input class="scaninput" id="scan" placeholder="Scan a part or pallet tag…" autocomplete="off" spellcheck="false" inputmode="none">
       <span class="focushint on" id="focushint">Ready</span>
     </div>
     <div class="row" style="margin-top:10px">
@@ -687,9 +717,11 @@ function renderScan(){
   // footer actions
   footerEl.classList.remove('hidden');
   footerEl.innerHTML=`
+    <button class="btn" id="toOrders">← Orders</button>
     ${mode==='pallet'?`<button class="btn" id="newPallet">New pallet</button>
       <button class="btn primary" id="printTag" ${activePallet?'':'disabled'}>Print pallet tag</button>`:''}
     <button class="btn ghost" id="toReport">Job status &amp; shortages</button>`;
+  document.getElementById('toOrders').onclick=()=>{ job=null; go('home'); };
   const np=document.getElementById('newPallet'); if(np) np.onclick=()=>{newPallet();render();};
   const pt=document.getElementById('printTag'); if(pt) pt.onclick=()=>printTag(activePallet);
   document.getElementById('toReport').onclick=()=>go('report');
