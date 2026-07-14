@@ -68,6 +68,10 @@
   .drop{border:1.5px dashed var(--line);border-radius:12px;padding:26px;text-align:center;
     background:var(--panel);color:var(--muted)}
   .drop.hot{border-color:var(--amber);color:var(--ink)}
+  .doneheader{margin-top:28px;display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;user-select:none}
+  .doneheader:hover{color:var(--ink)}
+  .doneheader .chev{display:inline-block;font-size:10px;transition:transform .15s}
+  .doneheader .chev.open{transform:rotate(90deg)}
 
   input[type=text]{font-family:var(--disp);background:#0e1116;border:1px solid var(--line);
     color:var(--ink);border-radius:8px;padding:11px 12px;font-size:15px}
@@ -418,6 +422,7 @@ function itemStatus(job,it){
   if(acc>=it.qty || palletQtyForKey(job,it.key,true)>0) return 'pallet';
   return 'fab';
 }
+function isDone(j){ return j.items && j.items.length>0 && j.items.every(it=>loadedQty(j,it)>=it.qty); }
 function jobProgress(job){
   const fab=job.items.filter(i=>i.type==='fab');
   const total=fab.reduce((s,i)=>s+i.qty,0);
@@ -439,7 +444,7 @@ function parseScan(raw){
    App state + routing
    ========================================================================= */
 let view='home', job=null, mode='truck', activePallet=null;
-let pollTimer=null, polling=false, lastHomeSig='', lastReportSig='';
+let pollTimer=null, polling=false, lastHomeSig='', lastReportSig='', showCompleted=false, searchTerm='';
 const appEl=document.getElementById('app');
 const footerEl=document.getElementById('footer');
 
@@ -490,6 +495,7 @@ function renderSettings(first){
 }
 function renderHome(){
   const jobs=Store.list();
+  const active=jobs.filter(j=>!isDone(j)), done=jobs.filter(j=>isDone(j));
   appEl.innerHTML=`
     <h1>Jobs</h1>
     <p class="sub">Load a CAMduct export to start tracking a job, or open one already on this computer.</p>
@@ -500,8 +506,15 @@ function renderHome(){
       <input type="file" id="csvFile" accept=".csv,.CSV" class="hidden">
       <input type="file" id="jsonFile" accept=".json" class="hidden">
     </div>
-    ${jobs.length? `<div class="cards">${jobs.map(jobCard).join('')}</div>`
-      : `<div class="drop" id="drop">No jobs yet. Drop a CAMduct <b>.CSV</b> here, or use “New job from CSV”.</div>`}
+    ${jobs.length?`<div class="row" style="margin-bottom:18px"><input type="text" id="jobSearch" placeholder="Search order #, customer, or site…" value="${esc(searchTerm)}" autocomplete="off" spellcheck="false" style="flex:1;max-width:440px"></div>`:''}
+    ${jobs.length ? `
+      <div class="cards" id="activeCards">${ active.length ? active.map(jobCard).join('')
+          : '<div class="drop">No open orders — all caught up.</div>' }</div>
+      ${ done.length ? `
+        <div class="doneheader" id="doneToggle"><span class="chev ${showCompleted?'open':''}">▶</span> Completed (${done.length})</div>
+        <div class="cards ${showCompleted?'':'hidden'}" id="doneCards" style="margin-top:14px">${done.map(jobCard).join('')}</div>
+      ` : '' }
+    ` : `<div class="drop" id="drop">No jobs yet. Drop a CAMduct <b>.CSV</b> here, or use “New job from CSV”.</div>`}
   `;
   document.getElementById('newJob').onclick=()=>document.getElementById('csvFile').click();
   document.getElementById('openFile').onclick=()=>document.getElementById('jsonFile').click();
@@ -514,12 +527,24 @@ function renderHome(){
   appEl.querySelectorAll('[data-export]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();exportJob(el.dataset.export);});
   appEl.querySelectorAll('[data-del]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();
     if(confirm('Remove order “'+el.dataset.del+'”? This deletes it for everyone. (The CAMduct export is unaffected.)')){Store.remove(el.dataset.del);render();}});
+  const dt=document.getElementById('doneToggle'); if(dt) dt.onclick=()=>{ showCompleted=!showCompleted; render(); };
+  const se=document.getElementById('jobSearch'); if(se) se.oninput=()=>{ searchTerm=se.value; filterCards(); };
+  filterCards();
   lastHomeSig=homeSig();
+}
+function filterCards(){
+  const term=(searchTerm||'').trim().toLowerCase();
+  appEl.querySelectorAll('.card').forEach(c=>{
+    const hay=c.getAttribute('data-search')||'';
+    c.classList.toggle('hidden', term!=='' && !hay.includes(term));
+  });
+  const doneCards=document.getElementById('doneCards');
+  if(doneCards) doneCards.classList.toggle('hidden', term!=='' ? false : !showCompleted);
 }
 function jobCard(j){
   const p=jobProgress(j);
   const sub=[j.orderNo?('Order #'+j.orderNo):'', j.title&&j.title!==j.name?j.title:'', j.location?('📍 '+j.location):''].filter(Boolean).join(' · ');
-  return `<div class="card" data-open="${esc(j.name)}" style="cursor:pointer">
+  return `<div class="card" data-open="${esc(j.name)}" data-search="${esc(((j.orderNo||'')+' '+(j.customer||'')+' '+(j.title||'')+' '+(j.location||'')).toLowerCase())}" style="cursor:pointer">
     <div class="name">${esc(j.customer||j.title||j.name)}</div>
     ${sub?`<div class="meta" style="margin-bottom:6px">${esc(sub)}</div>`:''}
     <div class="meta">${j._summary?j._summary.fabLines:j.items.filter(i=>i.type==='fab').length} fab · ${p.load}/${p.total} loaded · ${j.pallets.length} pallet(s)</div>
@@ -1004,7 +1029,10 @@ async function liveTick(){
   const dot=document.getElementById('liveDot'); if(dot) dot.className='live'+(ok?'':' off');
   if(!ok) return;
   // Only the shared, read-only views auto-redraw — never the active scan screen.
-  if(view==='home'){ const sig=homeSig(); if(sig!==lastHomeSig){ lastHomeSig=sig; renderHome(); } }
+  if(view==='home'){
+    const se=document.getElementById('jobSearch');
+    if(se && document.activeElement===se) return;   // don't disrupt active typing
+    const sig=homeSig(); if(sig!==lastHomeSig){ lastHomeSig=sig; renderHome(); } }
   else if(view==='report' && job){ const j=Store.get(job.name);
     if(j){ const sig=jobSig(j); if(sig!==lastReportSig){ lastReportSig=sig; job=j; renderReport(); } } }
   else if(view==='scan' && job){ // update just the completion number in place, no redraw
