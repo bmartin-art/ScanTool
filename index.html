@@ -201,6 +201,53 @@
   .frow input[type=text],.frow input[type=date],.frow select{background:#0e1116;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:11px 12px;font-size:15px;font-family:var(--disp)}
   .frow input:focus,.frow select:focus{outline:none;border-color:var(--amber)}
 
+  /* schedule board */
+  .schtop{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:16px}
+  .schtitle{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .weeknav{display:flex;gap:6px}
+  .floortoday{display:flex;align-items:center;gap:12px;margin-left:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 18px}
+  .ftnum{font-family:var(--mono);font-size:38px;font-weight:700;color:var(--amber);line-height:1}
+  .ftnum span{font-size:15px;color:var(--muted);margin-left:4px}
+  .ftlbl{font-size:13px;font-weight:700;line-height:1.25;text-transform:uppercase;letter-spacing:.06em}
+  .ftlbl .muted{font-weight:600;letter-spacing:0;text-transform:none;font-size:12px}
+  .schctrls{display:flex;gap:8px}
+  .board{display:grid;grid-template-columns:repeat(5,1fr) 0.8fr;gap:10px;align-items:start}
+  .daycol{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;min-height:220px}
+  .daycol.today{border-color:var(--amber)}
+  .daycol.unsched{background:#191d25}
+  .dayhdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .dname{font-weight:800;font-size:15px}
+  .ddate{color:var(--muted);font-weight:600;font-size:12px}
+  .dcap{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .dcap.over{color:var(--bad);font-weight:700}
+  .capbar{height:5px;background:#0e1116;border-radius:99px;overflow:hidden;border:1px solid var(--line);margin-bottom:10px}
+  .capbar > i{display:block;height:100%}
+  .daybody{display:flex;flex-direction:column;gap:8px;min-height:60px}
+  .daybody.draghot{outline:2px dashed var(--amber);outline-offset:3px;border-radius:8px}
+  .dayempty{color:var(--line);text-align:center;padding:14px 0;font-size:13px}
+  .schcard{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;cursor:pointer}
+  .schcard:hover{border-color:#3d485b}
+  .schcard.done{opacity:.6}
+  .scrow{display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .scname{font-weight:700;font-size:14px;line-height:1.15}
+  .scpri{color:var(--bad);font-weight:800}
+  .scmeta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
+  .sctitle{font-size:12px;color:var(--muted);margin:2px 0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .scbar{height:5px;background:#0e1116;border-radius:99px;overflow:hidden}
+  .scbar > i{display:block;height:100%}
+  /* TV mode: big, read-only, for the shop screen */
+  body.tv .bar,body.tv footer.actions{display:none}
+  body.tv main{max-width:none;padding:16px 20px 20px}
+  body.tv .schctrls #schHome{display:none}
+  body.tv .ftnum{font-size:64px}
+  body.tv .ftlbl{font-size:17px}
+  body.tv .schtitle h1{font-size:34px}
+  body.tv .dname{font-size:20px}
+  body.tv .scname{font-size:18px}
+  body.tv .scmeta,body.tv .sctitle{font-size:14px}
+  body.tv .dcap{font-size:15px}
+  body.tv .daycol{min-height:70vh}
+
   @media (max-width:560px){
     main{padding:16px 12px 132px}
     .bar{padding:10px 12px;gap:8px}
@@ -210,6 +257,10 @@
     #homeBtn{padding:9px 11px;font-size:13px}
     h1{font-size:21px}
     .cards,.tiles{grid-template-columns:1fr;gap:12px}
+    .board{grid-template-columns:1fr;gap:12px}
+    .daycol{min-height:0}
+    .floortoday{margin-left:0;width:100%;justify-content:center}
+    .schtop{gap:12px}
     .card{padding:14px}
     .card:active{border-color:var(--amber)}
     .stat{gap:16px}
@@ -437,7 +488,7 @@ function buildJobFromCSV(text, jobName){
   return {
     name: orderNo || jobName,          // storage key: order number is unique; job names can collide
     orderNo, customer, title:jobName,  // display fields
-    company:'', email:'', otype:'', needBy:'', priority:false, status:'Received', // front-office fields
+    company:'', email:'', otype:'', needBy:'', priority:false, status:'Received', scheduledDate:'', // front-office fields
     createdAt:Date.now(),
     items, pallets:[], palletSeq:0,
     _summary:{ fabLines:fab.length, fabPieces:fab.reduce((s,i)=>s+i.qty,0),
@@ -453,6 +504,7 @@ function normalizeOrder(j){
   if(j.needBy===undefined) j.needBy='';
   if(j.priority===undefined) j.priority=false;
   if(j.status===undefined) j.status='Received';
+  if(j.scheduledDate===undefined) j.scheduledDate='';
   if(!Array.isArray(j.items)) j.items=[];
   if(!Array.isArray(j.pallets)) j.pallets=[];
   return j;
@@ -476,6 +528,19 @@ function statusPill(s){
   const map={'Received':'stock','Programmed':'fab','Work In Progress':'pallet','Complete':'loaded'};
   return `<span class="pill ${map[s]||'fab'}">${esc(s||'Received')}</span>`;
 }
+
+/* ---------- scheduling / capacity ---------------------------------------- */
+const DAILY_CAPACITY = 50;   // shop hours available per day
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function mondayOf(d){ const x=new Date(d); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); x.setHours(0,0,0,0); return x; }
+function weekDays(start){ const out=[]; for(let i=0;i<5;i++){ const d=new Date(start); d.setDate(start.getDate()+i); out.push(d); } return out; }
+function loadedFrac(j){ const p=jobProgress(j); return p.total>0 ? p.load/p.total : (j.status==='Complete'?1:0); }
+function orderHours(j){ return (typeof j.laborHours==='number') ? j.laborHours : 0; }
+function ordersOn(dateStr){ return Store.list().filter(j=>j.scheduledDate===dateStr); }
+function hoursScheduled(dateStr){ return ordersOn(dateStr).reduce((s,j)=>s+orderHours(j),0); }
+function hoursRemaining(dateStr){ return ordersOn(dateStr).reduce((s,j)=>s+orderHours(j)*(1-loadedFrac(j)),0); }
+function fmtHr(h){ return (Math.round(h*10)/10).toString(); }
+
 function isDone(j){ return j.items && j.items.length>0 && j.items.every(it=>loadedQty(j,it)>=it.qty); }
 function bumpStatus(j){
   if(isDone(j)){ j.status='Complete'; return; }
@@ -503,8 +568,8 @@ function parseScan(raw){
 /* =========================================================================
    App state + routing
    ========================================================================= */
-let view='home', job=null, mode='truck', activePallet=null, editOrderName=null;
-let pollTimer=null, polling=false, lastHomeSig='', lastReportSig='', showCompleted=false, searchTerm='';
+let view='home', job=null, mode='truck', activePallet=null, editOrderName=null, weekStart=null, tvMode=false;
+let pollTimer=null, polling=false, lastHomeSig='', lastReportSig='', showCompleted=false, searchTerm='', lastSchedSig='';
 const appEl=document.getElementById('app');
 const footerEl=document.getElementById('footer');
 
@@ -517,15 +582,17 @@ async function startOrder(name){
 }
 
 function render(){
-  document.getElementById('homeBtn').classList.toggle('hidden', view==='home'||view==='settings'||view==='orderform');
-  document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home'||view==='settings'||view==='orderform');
+  document.getElementById('homeBtn').classList.toggle('hidden', view==='home'||view==='settings'||view==='orderform'||view==='schedule');
+  document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home'||view==='settings'||view==='orderform'||view==='schedule');
   if(job) document.getElementById('jobtagName').textContent=job.orderNo||job.name;
+  document.body.classList.toggle('tv', tvMode && view==='schedule');
   footerEl.classList.add('hidden'); footerEl.innerHTML='';
   if(view==='home') renderHome();
   else if(view==='ingest') renderIngest();
   else if(view==='scan') renderScan();
   else if(view==='report') renderReport();
   else if(view==='orderform') renderOrderForm();
+  else if(view==='schedule') renderSchedule();
   else if(view==='settings') renderSettings(!Cfg.ready());
 }
 document.getElementById('homeBtn').onclick=()=>{ job=null; go('home'); };
@@ -548,6 +615,7 @@ function renderOrderForm(){
       <div class="frow"><label>Type</label>
         <select id="oType"><option value="">—</option>${opt('Pickup',o.otype)}${opt('Delivery',o.otype)}</select></div>
       <div class="frow"><label>Requested date</label><input type="date" id="oDate" value="${esc(o.needBy||'')}"></div>
+      <div class="frow"><label>Scheduled for (shop day)</label><input type="date" id="oSched" value="${esc(o.scheduledDate||'')}"></div>
       <div class="frow"><label>Labor hours (from CAMduct, or enter manually)</label><input type="text" id="oHours" inputmode="decimal" value="${o.laborHours!=null?esc(String(o.laborHours)):''}"></div>
       <div class="frow"><label>Site / job name</label><input type="text" id="oTitle" value="${esc(o.title||'')}"></div>
       <div class="frow"><label>Status</label>
@@ -570,6 +638,7 @@ function renderOrderForm(){
     rec.email=document.getElementById('oEmail').value.trim();
     rec.otype=document.getElementById('oType').value;
     rec.needBy=document.getElementById('oDate').value;
+    rec.scheduledDate=document.getElementById('oSched').value || rec.needBy || '';
     const hrs=document.getElementById('oHours').value.trim(); rec.laborHours = hrs===''?undefined:(parseFloat(hrs)||0);
     rec.title=document.getElementById('oTitle').value.trim()||rec.title||num;
     rec.status=document.getElementById('oStatus').value;
@@ -580,7 +649,103 @@ function renderOrderForm(){
   };
 }
 
-/* ---------- SETTINGS / connection ---------------------------------------- */
+/* ---------- SCHEDULE BOARD ----------------------------------------------- */
+function openSchedule(){ if(!weekStart) weekStart=mondayOf(new Date()); go('schedule'); }
+function renderSchedule(){
+  if(!weekStart) weekStart=mondayOf(new Date());
+  const days=weekDays(weekStart);
+  const todayStr=ymd(new Date());
+  const remToday=hoursRemaining(todayStr), schedToday=hoursScheduled(todayStr);
+  const unsched=Store.list().filter(j=>!j.scheduledDate);
+  const dayName=d=>d.toLocaleDateString('en-US',{weekday:'short'});
+  const dayNum=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+  const dayCol=(d)=>{
+    const ds=ymd(d), list=ordersOn(ds), used=hoursScheduled(ds), rem=hoursRemaining(ds);
+    const pct=Math.min(100, Math.round(used/DAILY_CAPACITY*100));
+    const over=used>DAILY_CAPACITY;
+    const isToday=ds===todayStr;
+    return `<div class="daycol ${isToday?'today':''}" data-day="${ds}">
+      <div class="dayhdr">
+        <div class="dname">${dayName(d)} <span class="ddate">${dayNum(d)}</span></div>
+        <div class="dcap ${over?'over':''}">${fmtHr(used)}/${DAILY_CAPACITY} hr</div>
+      </div>
+      <div class="capbar"><i style="width:${pct}%;background:${over?'var(--bad)':'var(--amber)'}"></i></div>
+      <div class="daybody" data-drop="${ds}">
+        ${list.map(schedCard).join('') || '<div class="dayempty">—</div>'}
+      </div></div>`;
+  };
+
+  appEl.innerHTML=`
+    <div class="schtop">
+      <div class="schtitle">
+        <h1 style="margin:0">Schedule</h1>
+        <div class="weeknav">
+          <button class="btn ghost" id="wkPrev">← Prev</button>
+          <button class="btn ghost" id="wkThis">This week</button>
+          <button class="btn ghost" id="wkNext">Next →</button>
+        </div>
+      </div>
+      <div class="floortoday">
+        <div class="ftnum">${fmtHr(remToday)}<span>hr</span></div>
+        <div class="ftlbl">still on the floor today<br><span class="muted">${fmtHr(schedToday-remToday)} of ${fmtHr(schedToday)} hr done</span></div>
+      </div>
+      <div class="schctrls">
+        <button class="btn ghost" id="schHome">← Orders</button>
+        <button class="btn" id="tvToggle">${tvMode?'Exit TV':'📺 TV view'}</button>
+      </div>
+    </div>
+    <div class="board">
+      ${days.map(dayCol).join('')}
+      <div class="daycol unsched" data-day="">
+        <div class="dayhdr"><div class="dname">Unscheduled</div><div class="dcap">${unsched.length}</div></div>
+        <div class="capbar"><i style="width:0"></i></div>
+        <div class="daybody" data-drop="">${unsched.map(schedCard).join('') || '<div class="dayempty">—</div>'}</div>
+      </div>
+    </div>`;
+
+  // week nav
+  const shift=n=>{ weekStart=new Date(weekStart); weekStart.setDate(weekStart.getDate()+n*7); render(); };
+  document.getElementById('wkPrev').onclick=()=>shift(-1);
+  document.getElementById('wkNext').onclick=()=>shift(1);
+  document.getElementById('wkThis').onclick=()=>{ weekStart=mondayOf(new Date()); render(); };
+  document.getElementById('schHome').onclick=()=>{ job=null; go('home'); };
+  document.getElementById('tvToggle').onclick=()=>{
+    tvMode=!tvMode;
+    if(tvMode && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+    else if(!tvMode && document.exitFullscreen && document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+    render();
+  };
+  // open an order by tapping its card (not in TV mode)
+  if(!tvMode) appEl.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openJob(el.dataset.open));
+  // drag to reschedule (desktop planning)
+  if(!tvMode){
+    appEl.querySelectorAll('[data-open]').forEach(c=>{
+      c.setAttribute('draggable','true');
+      c.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/order', c.dataset.open); });
+    });
+    appEl.querySelectorAll('[data-drop]').forEach(z=>{
+      z.addEventListener('dragover',e=>{ e.preventDefault(); z.classList.add('draghot'); });
+      z.addEventListener('dragleave',()=>z.classList.remove('draghot'));
+      z.addEventListener('drop',e=>{ e.preventDefault(); z.classList.remove('draghot');
+        const name=e.dataTransfer.getData('text/order'); const j=Store.get(name);
+        if(j){ j.scheduledDate=z.dataset.drop; Store.save(j); render(); } });
+    });
+  }
+  lastSchedSig=schedSig();
+}
+function schedCard(j){
+  const p=jobProgress(j);
+  const color = j.status==='Complete' ? 'var(--good)' : (p.pct>0?'var(--amber)':'var(--line)');
+  return `<div class="schcard ${j.status==='Complete'?'done':''}" data-open="${esc(j.name)}">
+    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span>${j.priority?'<span class="scpri">!</span>':''}</div>
+    <div class="scmeta">#${esc(j.orderNo||j.name)}${orderHours(j)?(' · '+fmtHr(orderHours(j))+' hr'):''}</div>
+    <div class="sctitle">${esc(j.title||'')}</div>
+    <div class="scbar"><i style="width:${p.pct}%;background:${color}"></i></div>
+  </div>`;
+}
+function schedSig(){ return Store.list().map(j=>j.name+':'+j.scheduledDate+':'+jobProgress(j).load+'/'+jobProgress(j).total+':'+j.status+':'+(j.laborHours||0)).join('|'); }
+
 function renderSettings(first){
   const c=Cfg.get();
   appEl.innerHTML=`
@@ -617,6 +782,7 @@ function renderHome(){
     <p class="sub">Load a CAMduct export to start tracking a job, or open one already on this computer.</p>
     <div class="row" style="margin-bottom:18px">
       <button class="btn primary" id="newOrder">+ New order</button>
+      <button class="btn" id="schedBtn">📅 Schedule</button>
       <button class="btn" id="newJob">New job from CSV</button>
       <button class="btn" id="openFile">Open job file (.json)</button>
       <button class="btn ghost" id="settingsBtn" style="margin-left:auto">Connection</button>
@@ -635,6 +801,7 @@ function renderHome(){
   `;
   document.getElementById('newJob').onclick=()=>document.getElementById('csvFile').click();
   document.getElementById('newOrder').onclick=()=>openOrderForm(null);
+  document.getElementById('schedBtn').onclick=()=>openSchedule();
   document.getElementById('openFile').onclick=()=>document.getElementById('jsonFile').click();
   document.getElementById('settingsBtn').onclick=()=>go('settings');
   document.getElementById('csvFile').onchange=e=>loadCSVFile(e.target.files[0]);
@@ -1174,6 +1341,7 @@ async function liveTick(){
     const sig=homeSig(); if(sig!==lastHomeSig){ lastHomeSig=sig; renderHome(); } }
   else if(view==='report' && job){ const j=Store.get(job.name);
     if(j){ const sig=jobSig(j); if(sig!==lastReportSig){ lastReportSig=sig; job=j; renderReport(); } } }
+  else if(view==='schedule'){ const sig=schedSig(); if(sig!==lastSchedSig){ lastSchedSig=sig; renderSchedule(); } }
   else if(view==='scan' && job){ // update just the completion number in place, no redraw
     const j=Store.get(job.name); const pk=document.getElementById('pctK');
     if(j && pk && j!==job){ /* another device changed it; leave the scanner's own view intact */ } }
