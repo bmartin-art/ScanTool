@@ -195,6 +195,12 @@
   .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--panel2);
     border:1px solid var(--line);color:var(--ink);padding:10px 16px;border-radius:8px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s}
   .toast.show{opacity:1}
+  /* order entry form */
+  .frow{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .frow label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .frow input[type=text],.frow input[type=date],.frow select{background:#0e1116;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:11px 12px;font-size:15px;font-family:var(--disp)}
+  .frow input:focus,.frow select:focus{outline:none;border-color:var(--amber)}
+
   @media (max-width:560px){
     main{padding:16px 12px 132px}
     .bar{padding:10px 12px;gap:8px}
@@ -331,8 +337,8 @@ const Store = {
     catch(e){ return false; }
   },
   all(){ return {...this._cache}; },
-  list(){ return Object.values(this._cache).sort((a,b)=>b.createdAt-a.createdAt); },
-  get(name){ return this._cache[name]||null; },
+  list(){ return Object.values(this._cache).map(normalizeOrder).sort((a,b)=>b.createdAt-a.createdAt); },
+  get(name){ return normalizeOrder(this._cache[name]||null); },
   save(job){                                       // sync-looking; writes through async
     this._cache[job.name]=job; this._localWrite();
     this._api('PUT','/jobs/'+encodeURIComponent(job.name), job)
@@ -431,11 +437,25 @@ function buildJobFromCSV(text, jobName){
   return {
     name: orderNo || jobName,          // storage key: order number is unique; job names can collide
     orderNo, customer, title:jobName,  // display fields
+    company:'', email:'', otype:'', needBy:'', priority:false, status:'Received', // front-office fields
     createdAt:Date.now(),
     items, pallets:[], palletSeq:0,
     _summary:{ fabLines:fab.length, fabPieces:fab.reduce((s,i)=>s+i.qty,0),
                stockLines:stock.length, excludedLabor, excludedZero }
   };
+}
+// Ensure older/records missing new fields get safe defaults when loaded.
+function normalizeOrder(j){
+  if(!j) return j;
+  if(j.company===undefined) j.company='';
+  if(j.email===undefined) j.email='';
+  if(j.otype===undefined) j.otype='';
+  if(j.needBy===undefined) j.needBy='';
+  if(j.priority===undefined) j.priority=false;
+  if(j.status===undefined) j.status='Received';
+  if(!Array.isArray(j.items)) j.items=[];
+  if(!Array.isArray(j.pallets)) j.pallets=[];
+  return j;
 }
 
 /* ---------- per-item accounting helpers ---------------------------------- */
@@ -452,7 +472,17 @@ function itemStatus(job,it){
   if(acc>=it.qty || palletQtyForKey(job,it.key,true)>0) return 'pallet';
   return 'fab';
 }
+function statusPill(s){
+  const map={'Received':'stock','Programmed':'fab','Work In Progress':'pallet','Complete':'loaded'};
+  return `<span class="pill ${map[s]||'fab'}">${esc(s||'Received')}</span>`;
+}
 function isDone(j){ return j.items && j.items.length>0 && j.items.every(it=>loadedQty(j,it)>=it.qty); }
+function bumpStatus(j){
+  if(isDone(j)){ j.status='Complete'; return; }
+  const anyLoaded=j.items.some(it=>loadedQty(j,it)>0);
+  if(j.status==='Complete') j.status='Work In Progress';                       // dropped back below complete
+  else if(anyLoaded && (j.status==='Received'||j.status==='Programmed'||!j.status)) j.status='Work In Progress';
+}
 function jobProgress(job){
   const fab=job.items.filter(i=>i.type==='fab');
   const total=fab.reduce((s,i)=>s+i.qty,0);
@@ -473,26 +503,82 @@ function parseScan(raw){
 /* =========================================================================
    App state + routing
    ========================================================================= */
-let view='home', job=null, mode='truck', activePallet=null;
+let view='home', job=null, mode='truck', activePallet=null, editOrderName=null;
 let pollTimer=null, polling=false, lastHomeSig='', lastReportSig='', showCompleted=false, searchTerm='';
 const appEl=document.getElementById('app');
 const footerEl=document.getElementById('footer');
 
 function go(v){ view=v; render(); }
 async function openJob(name){ await Store.refresh(name); job=Store.get(name); mode='truck'; activePallet=null; go('scan'); }
+async function startOrder(name){
+  await Store.refresh(name); job=Store.get(name);
+  if(job && (job.status==='Received'||job.status==='Programmed'||!job.status)){ job.status='Work In Progress'; Store.save(job); }
+  mode='truck'; activePallet=null; searchTerm=''; go('scan');
+}
 
 function render(){
-  document.getElementById('homeBtn').classList.toggle('hidden', view==='home'||view==='settings');
-  document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home'||view==='settings');
+  document.getElementById('homeBtn').classList.toggle('hidden', view==='home'||view==='settings'||view==='orderform');
+  document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home'||view==='settings'||view==='orderform');
   if(job) document.getElementById('jobtagName').textContent=job.orderNo||job.name;
   footerEl.classList.add('hidden'); footerEl.innerHTML='';
   if(view==='home') renderHome();
   else if(view==='ingest') renderIngest();
   else if(view==='scan') renderScan();
   else if(view==='report') renderReport();
+  else if(view==='orderform') renderOrderForm();
   else if(view==='settings') renderSettings(!Cfg.ready());
 }
 document.getElementById('homeBtn').onclick=()=>{ job=null; go('home'); };
+
+/* ---------- ORDER ENTRY / EDIT ------------------------------------------- */
+function openOrderForm(name){ editOrderName=name||null; go('orderform'); }
+function renderOrderForm(){
+  const existing = editOrderName ? Store.get(editOrderName) : null;
+  const o = existing || {}; const isNew = !existing;
+  const opt=(v,cur)=>`<option ${cur===v?'selected':''}>${v}</option>`;
+  appEl.innerHTML=`
+    <h1>${isNew?'New order':'Order details'}</h1>
+    <p class="sub">Enter the office info once. The floor, the status board, and (soon) the cover sheet all read from this — and CAMduct fills in the duct pieces automatically by order number.</p>
+    <div style="max-width:620px">
+      <div class="frow"><label>Order number${isNew?' — required':''}</label>
+        <input type="text" id="oNum" value="${esc(o.orderNo||'')}" ${isNew?'':'disabled'} placeholder="e.g. 11512" inputmode="numeric"></div>
+      <div class="frow"><label>Customer</label><input type="text" id="oCust" value="${esc(o.customer||'')}"></div>
+      <div class="frow"><label>Company</label><input type="text" id="oCo" value="${esc(o.company||'')}"></div>
+      <div class="frow"><label>Customer email (for the completion notice)</label><input type="text" id="oEmail" value="${esc(o.email||'')}" inputmode="email"></div>
+      <div class="frow"><label>Type</label>
+        <select id="oType"><option value="">—</option>${opt('Pickup',o.otype)}${opt('Delivery',o.otype)}</select></div>
+      <div class="frow"><label>Requested date</label><input type="date" id="oDate" value="${esc(o.needBy||'')}"></div>
+      <div class="frow"><label>Labor hours (from CAMduct, or enter manually)</label><input type="text" id="oHours" inputmode="decimal" value="${o.laborHours!=null?esc(String(o.laborHours)):''}"></div>
+      <div class="frow"><label>Site / job name</label><input type="text" id="oTitle" value="${esc(o.title||'')}"></div>
+      <div class="frow"><label>Status</label>
+        <select id="oStatus">${['Received','Programmed','Work In Progress','Complete'].map(s=>opt(s,o.status||'Received')).join('')}</select></div>
+      <div class="frow" style="flex-direction:row;align-items:center;gap:10px"><input type="checkbox" id="oPri" ${o.priority?'checked':''} style="width:20px;height:20px"><label style="margin:0">High priority</label></div>
+      <div class="row" style="margin-top:18px">
+        <button class="btn primary" id="oSave">${isNew?'Create order':'Save'}</button>
+        <button class="btn ghost" id="oCancel">Cancel</button>
+        <span id="oMsg" class="muted" style="font-size:13px"></span>
+      </div>
+    </div>`;
+  document.getElementById('oCancel').onclick=()=>{ editOrderName=null; if(existing){ openJob(existing.name); } else { job=null; go('home'); } };
+  document.getElementById('oSave').onclick=()=>{
+    const num=(document.getElementById('oNum').value||'').trim();
+    if(isNew && !num){ document.getElementById('oMsg').textContent='Order number is required.'; return; }
+    if(isNew && Store.get(num)){ document.getElementById('oMsg').textContent='Order '+num+' already exists — open it from the list to edit.'; return; }
+    const rec = existing || { name:num, orderNo:num, createdAt:Date.now(), items:[], pallets:[], palletSeq:0 };
+    rec.customer=document.getElementById('oCust').value.trim();
+    rec.company=document.getElementById('oCo').value.trim();
+    rec.email=document.getElementById('oEmail').value.trim();
+    rec.otype=document.getElementById('oType').value;
+    rec.needBy=document.getElementById('oDate').value;
+    const hrs=document.getElementById('oHours').value.trim(); rec.laborHours = hrs===''?undefined:(parseFloat(hrs)||0);
+    rec.title=document.getElementById('oTitle').value.trim()||rec.title||num;
+    rec.status=document.getElementById('oStatus').value;
+    rec.priority=document.getElementById('oPri').checked;
+    normalizeOrder(rec);
+    Store.save(rec);
+    editOrderName=null; openJob(rec.name); toast(isNew?'Order created':'Saved');
+  };
+}
 
 /* ---------- SETTINGS / connection ---------------------------------------- */
 function renderSettings(first){
@@ -530,7 +616,8 @@ function renderHome(){
     <h1>Jobs</h1>
     <p class="sub">Load a CAMduct export to start tracking a job, or open one already on this computer.</p>
     <div class="row" style="margin-bottom:18px">
-      <button class="btn primary" id="newJob">New job from CSV</button>
+      <button class="btn primary" id="newOrder">+ New order</button>
+      <button class="btn" id="newJob">New job from CSV</button>
       <button class="btn" id="openFile">Open job file (.json)</button>
       <button class="btn ghost" id="settingsBtn" style="margin-left:auto">Connection</button>
       <input type="file" id="csvFile" accept=".csv,.CSV" class="hidden">
@@ -547,6 +634,7 @@ function renderHome(){
     ` : `<div class="drop" id="drop">No jobs yet. Drop a CAMduct <b>.CSV</b> here, or use “New job from CSV”.</div>`}
   `;
   document.getElementById('newJob').onclick=()=>document.getElementById('csvFile').click();
+  document.getElementById('newOrder').onclick=()=>openOrderForm(null);
   document.getElementById('openFile').onclick=()=>document.getElementById('jsonFile').click();
   document.getElementById('settingsBtn').onclick=()=>go('settings');
   document.getElementById('csvFile').onchange=e=>loadCSVFile(e.target.files[0]);
@@ -555,10 +643,22 @@ function renderHome(){
   if(drop) wireDrop(drop);
   appEl.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openJob(el.dataset.open));
   appEl.querySelectorAll('[data-export]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();exportJob(el.dataset.export);});
+  appEl.querySelectorAll('[data-edit]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();openOrderForm(el.dataset.edit);});
   appEl.querySelectorAll('[data-del]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();
     if(confirm('Remove order “'+el.dataset.del+'”? This deletes it for everyone. (The CAMduct export is unaffected.)')){Store.remove(el.dataset.del);render();}});
   const dt=document.getElementById('doneToggle'); if(dt) dt.onclick=()=>{ showCompleted=!showCompleted; render(); };
-  const se=document.getElementById('jobSearch'); if(se) se.oninput=()=>{ searchTerm=se.value; filterCards(); };
+  const se=document.getElementById('jobSearch');
+  if(se){
+    se.oninput=()=>{ searchTerm=se.value; filterCards(); };
+    se.addEventListener('keydown',e=>{ if(e.key!=='Enter') return;
+      const v=se.value.trim(); if(!v) return;
+      const all=Store.list();
+      let hit=all.find(j=>String(j.orderNo)===v || j.name===v);       // exact order # (scanned barcode)
+      if(!hit){ const m=all.filter(j=>((j.orderNo||'')+' '+(j.customer||'')+' '+(j.title||'')).toLowerCase().includes(v.toLowerCase())); if(m.length===1) hit=m[0]; }
+      if(hit){ startOrder(hit.name); } else { toast('No order matches “'+v+'”'); }
+    });
+    if(!document.activeElement || document.activeElement===document.body) se.focus();  // ready to catch a paperwork scan
+  }
   filterCards();
   lastHomeSig=homeSig();
 }
@@ -574,12 +674,17 @@ function filterCards(){
 function jobCard(j){
   const p=jobProgress(j);
   const sub=[j.orderNo?('Order #'+j.orderNo):'', j.title&&j.title!==j.name?j.title:'', j.location?('📍 '+j.location):''].filter(Boolean).join(' · ');
+  const barColor = j.status==='Complete' ? 'var(--good)' : (p.pct>0 ? 'var(--amber)' : 'var(--line)');
   return `<div class="card" data-open="${esc(j.name)}" data-search="${esc(((j.orderNo||'')+' '+(j.customer||'')+' '+(j.title||'')+' '+(j.location||'')).toLowerCase())}" style="cursor:pointer">
-    <div class="name">${esc(j.customer||j.title||j.name)}</div>
-    ${sub?`<div class="meta" style="margin-bottom:6px">${esc(sub)}</div>`:''}
-    <div class="meta">${j._summary?j._summary.fabLines:j.items.filter(i=>i.type==='fab').length} fab · ${p.load}/${p.total} loaded · ${j.pallets.length} pallet(s)</div>
-    <div class="bar-wrap"><div class="prog"><i style="width:${p.pct}%"></i></div></div>
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div class="name">${esc(j.customer||j.title||j.name)}</div>
+      ${statusPill(j.status)}
+    </div>
+    ${sub?`<div class="meta" style="margin:2px 0 6px">${esc(sub)}${j.priority?' · <b style="color:var(--bad)">PRIORITY</b>':''}</div>`:''}
+    <div class="meta">${p.load}/${p.total} loaded${j.laborHours!=null?(' · '+j.laborHours+' hr'):''} · ${j.pallets.length} pallet(s)</div>
+    <div class="bar-wrap"><div class="prog"><i style="width:${p.pct}%;background:${barColor}"></i></div></div>
     <div class="row" style="margin-top:12px">
+      <button class="btn ghost" data-edit="${esc(j.name)}" style="padding:7px 10px;font-size:13px">Edit</button>
       <button class="btn ghost" data-export="${esc(j.name)}" style="padding:7px 10px;font-size:13px">Export</button>
       <button class="btn ghost" data-del="${esc(j.name)}" style="padding:7px 10px;font-size:13px">Remove</button>
     </div>
@@ -661,7 +766,7 @@ function renderScan(){
   const p=jobProgress(job);
   const stock=job.items.filter(i=>i.type==='stock');
   appEl.innerHTML=`
-    <h1>${esc(job.customer||job.title||job.name)}</h1>
+    <h1>${esc(job.customer||job.title||job.name)} ${statusPill(job.status)}</h1>
     <p class="sub" style="margin:-2px 0 16px">${[job.orderNo?('Order #'+esc(job.orderNo)):'', job.title&&job.title!==job.name?esc(job.title):''].filter(Boolean).join(' · ')}</p>
     <div class="locrow">
       <span class="loclabel">Storage location</span>
@@ -720,8 +825,10 @@ function renderScan(){
     <button class="btn" id="toOrders">← Orders</button>
     ${mode==='pallet'?`<button class="btn" id="newPallet">New pallet</button>
       <button class="btn primary" id="printTag" ${activePallet?'':'disabled'}>Print pallet tag</button>`:''}
-    <button class="btn ghost" id="toReport">Job status &amp; shortages</button>`;
+    <button class="btn ghost" id="toReport">Job status &amp; shortages</button>
+    <button class="btn ghost" id="toDetails">Order details</button>`;
   document.getElementById('toOrders').onclick=()=>{ job=null; go('home'); };
+  document.getElementById('toDetails').onclick=()=>openOrderForm(job.name);
   const np=document.getElementById('newPallet'); if(np) np.onclick=()=>{newPallet();render();};
   const pt=document.getElementById('printTag'); if(pt) pt.onclick=()=>printTag(activePallet);
   document.getElementById('toReport').onclick=()=>go('report');
@@ -776,7 +883,7 @@ function wireStockTiles(){
         if(step>0 && accounted(job,it)>=it.qty){ toast('Already fully accounted'); return; }
         it.onTruck=Math.max(0,it.onTruck+step);
       }
-      Store.save(job); render();
+      bumpStatus(job); Store.save(job); render();
     });
   });
   appEl.querySelectorAll('[data-activate]').forEach(b=>b.onclick=()=>{
@@ -829,7 +936,7 @@ function toggleManual(){
     if(mode==='pallet'){ if(!activePallet) newPallet();
       activePallet.contents[it.key]=(activePallet.contents[it.key]||0)+n; }
     else { it.onTruck+=n; }
-    Store.save(job);
+    bumpStatus(job); Store.save(job);
     feedback('good', it.desc, '', accounted(job,it)+' of '+it.qty,
       'item '+it.itemNo+' · +'+n+' by hand'+(mode==='pallet'?' → '+activePallet.id:' → truck'));
     item.value=''; qty.value='1'; info.className='maninfo'; info.textContent='Added. Next item # if needed.';
@@ -861,7 +968,7 @@ function handleScan(raw){
   } else {
     it.onTruck++;
   }
-  Store.save(job);
+  bumpStatus(job); Store.save(job);
   const acc=accounted(job,it);
   feedback('good', it.desc, '', `${acc} of ${it.qty}`, 'item '+it.itemNo+(mode==='pallet'?' → '+activePallet.id:' → truck'));
   // refresh counts without stealing focus
@@ -875,7 +982,7 @@ function scanPalletTag(id){
   if(!p){ return feedback('bad','Unknown pallet tag',id,'Not found in this job'); }
   if(mode!=='truck'){ return feedback('warn','Switch to truck mode','to load a pallet',id); }
   if(p.loaded){ return feedback('warn','Pallet already loaded',id,''); }
-  p.loaded=true; Store.save(job);
+  p.loaded=true; bumpStatus(job); Store.save(job);
   const n=Object.values(p.contents).reduce((a,b)=>a+b,0);
   feedback('good','Pallet loaded',id,'',n+' item(s) onto truck');
   const pk=document.getElementById('pctK'); const pr=jobProgress(job); if(pk)pk.textContent=pr.pct+'%';
