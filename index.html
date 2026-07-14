@@ -259,6 +259,59 @@
   body.tv .dcap{font-size:15px}
   body.tv .daycol{min-height:70vh}
 
+  /* ===== cover sheet (scoped under .cs, light theme, isolated from the app) ===== */
+  .cs{--csink:#14253b;--cssteel:#3c4f63;--csmuted:#6b7886;--csline:#d3d9e0;--csline2:#e5e9ee;--csaccent:#e07b1a;--csfield:#fffdf6;
+      background:#eceff3;color:var(--csink);border-radius:12px;padding:16px;margin-bottom:40px;font-size:14px;line-height:1.4}
+  .cs .masthead{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid var(--csline);border-radius:7px 7px 0 0;padding:14px 20px}
+  .cs .masthead img{height:58px;width:auto}
+  .cs .masthead .title{margin-left:auto;text-align:right}
+  .cs .masthead .title h1{margin:0;font-size:17px;letter-spacing:.14em;text-transform:uppercase;color:var(--csink)}
+  .cs .masthead .title p{margin:2px 0 0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#b9610c;font-weight:700}
+  .cs .matchbar{background:#163158;color:#fff;border-radius:6px;padding:9px 14px;margin-top:8px;font-size:13px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .cs .matchbar b{font-family:var(--mono);font-size:18px;color:#ffd27a;letter-spacing:.04em}
+  .cs .matchbar span{font-size:11.5px;color:#c7d2e0;font-weight:500}
+  .cs .hdr{background:#fff;border:1px solid var(--csline);border-top:none;border-radius:0 0 7px 7px;padding:14px 20px 16px;display:grid;grid-template-columns:repeat(4,1fr);gap:11px 18px}
+  .cs .f{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .cs .f.wide{grid-column:span 2}
+  .cs .f label{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--csmuted);font-weight:700}
+  .cs .f input,.cs .f select,.cs .f textarea{font:inherit;font-size:13.5px;color:var(--csink);border:1px solid var(--csline);border-radius:5px;padding:7px 9px;background:var(--csfield);width:100%}
+  .cs .f input[readonly]{background:#eef3f8;color:var(--cssteel);border-style:dashed}
+  .cs input:focus,.cs select:focus,.cs textarea:focus{outline:2px solid var(--csaccent);border-color:var(--csaccent)}
+  .cs .panels{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+  .cs .col{display:flex;flex-direction:column;gap:14px}
+  .cs .col-tag{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--cssteel);padding:0 2px 2px;border-bottom:2px solid var(--csline)}
+  .cs .card{background:#fff;border:1px solid var(--csline);border-radius:7px;overflow:hidden}
+  .cs .card>h3{margin:0;background:var(--csink);color:#fff;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;padding:7px 12px;font-weight:700}
+  .cs .card .body{padding:5px 12px 9px}
+  .cs .row{display:flex;align-items:center;gap:9px;padding:4px 0;min-height:30px;flex-wrap:wrap;border:none;margin:0}
+  .cs .row+.row{border-top:1px solid var(--csline2)}
+  .cs .row .rl{flex:1;font-size:13px;min-width:90px}
+  .cs .row select,.cs .row input[type=text]{font:inherit;font-size:12.5px;border:1px solid var(--csline);border-radius:5px;padding:5px 7px;background:var(--csfield);max-width:100%}
+  .cs .chk{display:flex;align-items:center;gap:9px;flex:1;cursor:pointer;font-size:13px}
+  .cs .chk input{width:18px;height:18px;flex:none;cursor:pointer;accent-color:var(--csaccent)}
+  .cs .wide-card{margin-top:14px}
+  .cs .notes textarea{width:100%;min-height:70px;resize:vertical;font:inherit;font-size:13px;border:1px solid var(--csline);border-radius:5px;padding:9px 11px;background:var(--csfield)}
+  .cs .staging{display:grid;grid-template-columns:repeat(5,1fr);gap:9px 16px}
+  .cs .stg{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .cs .stg label{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--csmuted);font-weight:700}
+  .cs .stg input{font-family:var(--mono);font-size:14px;text-align:center;border:1px solid var(--csline);border-radius:5px;padding:6px;background:var(--csfield)}
+  .cs .shoponly{display:grid;grid-template-columns:repeat(3,1fr);gap:11px 18px;background:#fbe6d3;border-top:1px solid #e4c78a;padding:11px 12px;margin:8px -12px -9px}
+  .cs .shoponly .f input,.cs .shoponly .f select{background:#fff}
+  .cs .csbar{display:flex;align-items:center;gap:10px;margin-top:18px}
+  /* print: only the cover sheet, form chrome stripped to plain text */
+  @media print{
+    body.csprint > *{display:none !important}
+    body.csprint #app{display:block !important}
+    body.csprint #app > *:not(.cs){display:none !important}
+    body.csprint .cs .noprint{display:none !important}
+    body.csprint .cs{background:#fff;padding:0}
+    body.csprint .cs input,body.csprint .cs select,body.csprint .cs textarea{-webkit-appearance:none;appearance:none;border:none !important;background:none !important;outline:none !important;color:var(--csink);border-bottom:1px solid var(--csline) !important;border-radius:0 !important;font-weight:700}
+    body.csprint .cs .panels{display:block;column-count:2;column-gap:9mm}
+    body.csprint .cs .card,body.csprint .cs .col{break-inside:avoid;page-break-inside:avoid}
+    body.csprint .cs .card{margin-bottom:6px}
+    body.csprint .cs .card>h3,body.csprint .cs .masthead .title p{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+
   @media (max-width:560px){
     main{padding:16px 12px 132px}
     .bar{padding:10px 12px;gap:8px}
@@ -269,6 +322,10 @@
     h1{font-size:21px}
     .cards,.tiles{grid-template-columns:1fr;gap:12px}
     .board{grid-template-columns:1fr;gap:12px}
+    .cs .hdr{grid-template-columns:1fr 1fr}
+    .cs .panels{grid-template-columns:1fr}
+    .cs .staging{grid-template-columns:repeat(2,1fr)}
+    .cs .shoponly{grid-template-columns:1fr}
     .daycol{min-height:0}
     .floortoday{margin-left:0;width:100%;justify-content:center}
     .schtop{gap:12px}
@@ -445,6 +502,13 @@ function parseCSV(text){
 
 /* ---------- ingest: CSV rows -> job -------------------------------------- */
 const STOCK_GROUP='STCKCAT';
+
+/* Customer & job lists for cover-sheet auto-fill (customer -> acct #, job -> PO #) */
+const BASE_CUSTOMERS=[["4 Dimonds Mechanical","4DM100"],["Advanced Comfort Specialists","ACS100"],["Advanced Cooling Technologies","ACT100"],["Air Management Technologies, Inc.","AIT100"],["Alltemp Enterprises Inc.","ALL100"],["Ameri-Tech","AMT100"],["Ames Construction Inc.","AME100"],["Antz Energy","ANT100"],["B&L Ott Heating and Air Conditioning, LLC","BLO100"],["Berkshire Mechanical","BER100"],["BMH Plumbing Heating & A/C","BMH100"],["Boalton Mechanical","BOA100"],["BRIAN'S HEATING & COOLING","BRI100"],["Brookstone Personal","BRO100"],["BRUBAKER, INC","BRU100"],["C Mechanical Service","CMS100"],["Carpenter Technology","CAT100"],["Clark Inc.","CLK100"],["CMC. INC.","CMC100"],["COMFORT AIRE H/C","COM100"],["Comfort Plus Htg & Air Conditioning LLC","CPH100"],["Conestoga Mechanical","CON100"],["Cooks Service Co.","COO100"],["COUNTY LINE MECHANICAL LLC","COU100"],["CS Wenger","CSW100"],["Custom Comfort Mechanical","CCM100"],["Daflure Heating and Cooling","DAF100"],["Dart Container","DAR100"],["DENTECH INC","DEN100"],["DN Printer Solutions","DNP100"],["Dolan Construction","DOL100"],["Doug Gochnauer","DOU100"],["Eastern Air Inc","EAS100"],["Eden Resorts","EDN100"],["EE Biss Heating and Cooling","EEB100"],["Elite Plumbing and Heating AC","EPH100"],["ENERGY WALL LLC","ENE100"],["Five Star Mechanical Contractors","FIV100"],["Flintrock Stables","FLI100"],["FLOW Mechanical, LLC","FLO100"],["GARDEN SPOT MECHANICAL INC","GSM100"],["GARY MARTIN & SONS INC","GAR100"],["GM Mechanical Inc.","GMM100"],["GROFF'S Heating AC & Plumbing, Inc","GRF100"],["GSM Industrial","GSI100"],["Haller Enterprises Inc","HAL100"],["Hammer Creek Holdings","HCH100"],["HB McClure Co","HBM100"],["Hector Moreno HVAC Pro","HMH100"],["Hightec HVAC","HIG100"],["Hirschberg Mechanical","HIR100"],["Hoem Incorparated","HOM100"],["IT Landes Company, LLC","ITL100"],["J & J HEATING & COOLING","JJH100"],["J I Properties LLC","JIP100"],["J&G Heating and Air Conditioning","JGH100"],["J.A. Smith Heating & Air Conditioning","JAS100"],["Jack Pears & Associates, LLC","JAC100"],["James Craft & Son, Inc.","JCS100"],["JK Mechanical Inc","JKM100"],["JM LAPP","JML100"],["JSL Mechanical, Inc.","JSL100"],["JWCS (Cincinnatus)","JWC100"],["JZ Enterprise","JZE100"],["Lanco Heating & Cooling","LAN100"],["Leibold Inc.","LEI100"],["LEO KOB CO, INC","LEO100"],["Les Weaver Heating & Air Conditioning","LES100"],["Lincoln Pavement","LIN100"],["Locust Hill Mechanical","LHM100"],["M&M Facility Services","MMF100"],["M&M Mechanical","MMM100"],["MARV'S PLUMBING","MAR100"],["Matchline Mechanical, LLC","MAT100"],["Midstate Mechanical","MSM100"],["Modern Heating, Cooling & Plumbing","MOD100"],["Monarch Enterprise Inc","MON100"],["MW Service","MWS100"],["Myco Mechanical","MYC100"],["N.B. Rogers","NBR100"],["North Bay Mechanical","NBM100"],["Premier Climate LLC","PCL100"],["Prime Home Contracting","PHC100"],["Printer Solutions","PRI100"],["Protech Mechanical Contractors","PRO100"],["Rad Electrical","RAD100"],["Rank Inc","RNK100"],["Rank Inc.","RAN100"],["RELIANT HEATING & COOLING","REL100"],["Remco Inc.","REM100"],["Ressler & Mateer, Inc.","RSM100"],["Reynolds Heating & Air Cond","REY100"],["RR HVAC Services, LLC","RRH100"],["S&S Heating and Air","SSH100"],["Schwanger Bro & Co","SWB100"],["Shannon A. Smith, Inc.","SHA100"],["Spangler & Boyer Mechanical Inc","SBM100"],["Swartley Bros. Engineers","SBE100"],["TEMPCHEK Mechanical Services, Inc","TEM100"],["The Cincinnatus Group","TCG100"],["Thermal Logistics, Inc","TML100"],["Thermotech Inc","THT100"],["Thirty, Inc. (dba Eden Resort)","THI100"],["Tier 1 Mechanical","TIE100"],["TM Heating & Cooling","TMH100"],["Tom Daly","TOM100"],["Total Temp Control LLC","TTC100"],["Triangle Refrigeration","TRI100"],["Vertex Mechanical","VTX100"],["W.C. Eshenaur & Son, Inc.","WCE100"],["Warfel Construction","WAR100"],["Weaver Energy","WEE100"],["WHITLEY EAST LLC","WHT100"],["Wohlsen Construction Company","WCC100"],["Yorkaire Inc","YOA100"],["Home Climates Inc","HCI100"],["RSC Heating & Air Conditioning LLC","RSC100"],["Scott Hogarth Heating","SHH100"],["Creative Energy","CRE100"],["Regal Restorations","RRE100"],["Boyd Wilson LLC","BYW100"],["Ferguson","FER100"],["Vision Mechanical INC","VIM100"],["Melcher Heating And Cooling","MCR100"],["The AC-Team","ATM100"],["Anchor Mechanical","ANM100"],["Cocalico Plumbing & Heating","CPA100"],["JBM","JBM100"],["Landis Brothers Mechanical","LBM100"],["Menco Mechanical","MEN100"],["Martins Climate Technologies","MCT100"],["New Energy Solutions","NES100"],["Stillman H&C LLC","SHC100"],["Mick's Pluming & Heating","MPH100"],["The Farfield Company","FAR100"],["Grapek Bates","GRB100"],["T.L. Wetzel & Sons. Inc.","TLW100"]];
+const BASE_JOBS=[["North Queen","100 0000 4659"],["Faulkner","100876"],["Tiger","3590"],["Amazon","10000019142"],["Pine Hill Storage","3579-2"],["OverLook Town Center","30371"],["Doylestown Rec Center","DCM-2"],["Ciporin Cottages","1264"],["United Zion","TW1473"],["Monroe Vo-Tech","72_Monroe"],["Charles River Labs","3620"],["Cumru Fire Dept","4157"],["Jura","452662"],["Trillium","10000048601"],["Ashbridge House","AHM-11"],["PSU Abington","2416008"],["Christ Wesleyan Church","4424"],["Aldi 98","1374"],["Overlook TC E","33708"],["Goddard School","10000033176"],["Jersey Shore MS Library","4412"],["Jersey Shore MS GYM","4412"],["Intrepidus","39655"],["Lancaster Catholic","460759"],["Grocery Outlet Abington","1400"],["Aldi #197","1377"],["Chase Bank Easton","8805001"],["501 Alexander Drive","501 Alexander"],["Lancaster Airport","AT2725-94064"],["Hershey West End","Hershey"],["Overlook TC F","31512"],["Memory Care Main","HLZH25021-20203"],["Mavis Tire","8768001"],["Sweet Valley","4397"],["Burkholder Tractor",""],["Chase Bank Trexlertown","8897002"],["RR Museum","004454"],["Cheltenham HS","258003"],["Cleveland White","3650"],["Eurofins A358","Eurofins A358"],["CRL Corridor","CRL Corridor"],["Pioneer Charter School","101095"],["VIA Lehigh Valley","H25086-2C"],["Shank Door","H558-15622"],["Valvoline","HLZH25077-24681"]];
+const CMAP={}, JMAP={};
+BASE_CUSTOMERS.forEach(([n,id])=>{ CMAP[n.trim().toUpperCase()]=id; });
+BASE_JOBS.forEach(([n,po])=>{ JMAP[n.trim().toUpperCase()]=po; });
 function col(headers,names){
   for(const n of names){ const idx=headers.findIndex(h=>h.trim().toLowerCase()===n); if(idx>=0) return idx; }
   return -1;
@@ -626,54 +690,209 @@ document.getElementById('homeBtn').onclick=()=>{ job=null; go('home'); };
 
 /* ---------- ORDER ENTRY / EDIT ------------------------------------------- */
 function openOrderForm(name){ editOrderName=name||null; go('orderform'); }
+// Pick a 4-digit code not currently used by any open (not-Complete) order.
+function newMatchCode(){
+  const used=new Set(Store.list().filter(j=>j.status!=='Complete').map(j=>j.cover&&j.cover.matchCode).filter(Boolean));
+  for(let i=0;i<9999;i++){ const code=String(Math.floor(1000+Math.random()*9000)); if(!used.has(code)) return code; }
+  return String(Math.floor(1000+Math.random()*9000));
+}
+// The cover sheet IS the order-entry screen. Identity fields mirror onto the
+// order record (so the email/schedule read them); everything is also kept in
+// record.cover so the sheet re-renders and prints exactly as entered.
 function renderOrderForm(){
   const existing = editOrderName ? Store.get(editOrderName) : null;
-  const o = existing || {}; const isNew = !existing;
-  const opt=(v,cur)=>`<option ${cur===v?'selected':''}>${v}</option>`;
-  appEl.innerHTML=`
-    <h1>${isNew?'New order':'Order details'}</h1>
-    <p class="sub">Enter the office info once. The floor, the status board, and (soon) the cover sheet all read from this — and CAMduct fills in the duct pieces automatically by order number.</p>
-    <div style="max-width:620px">
-      <div class="frow"><label>Order number${isNew?' — required':''}</label>
-        <input type="text" id="oNum" value="${esc(o.orderNo||'')}" ${isNew?'':'disabled'} placeholder="e.g. 11512" inputmode="numeric"></div>
-      <div class="frow"><label>Customer</label><input type="text" id="oCust" value="${esc(o.customer||'')}"></div>
-      <div class="frow"><label>Company</label><input type="text" id="oCo" value="${esc(o.company||'')}"></div>
-      <div class="frow"><label>Customer email (for the completion notice)</label><input type="text" id="oEmail" value="${esc(o.email||'')}" inputmode="email"></div>
-      <div class="frow"><label>Type</label>
-        <select id="oType"><option value="">—</option>${opt('Pickup',o.otype)}${opt('Delivery',o.otype)}</select></div>
-      <div class="frow"><label>Requested date</label><input type="date" id="oDate" value="${esc(o.needBy||'')}"></div>
-      <div class="frow"><label>Scheduled for (shop day)</label><input type="date" id="oSched" value="${esc(o.scheduledDate||'')}"></div>
-      <div class="frow"><label>Labor hours (from CAMduct, or enter manually)</label><input type="text" id="oHours" inputmode="decimal" value="${o.laborHours!=null?esc(String(o.laborHours)):''}"></div>
-      <div class="frow"><label>Site / job name</label><input type="text" id="oTitle" value="${esc(o.title||'')}"></div>
-      <div class="frow"><label>Status</label>
-        <select id="oStatus">${['Received','Programmed','Work In Progress','Complete'].map(s=>opt(s,o.status||'Received')).join('')}</select></div>
-      <div class="frow" style="flex-direction:row;align-items:center;gap:10px"><input type="checkbox" id="oPri" ${o.priority?'checked':''} style="width:20px;height:20px"><label style="margin:0">High priority</label></div>
-      <div class="row" style="margin-top:18px">
-        <button class="btn primary" id="oSave">${isNew?'Create order':'Save'}</button>
-        <button class="btn ghost" id="oCancel">Cancel</button>
-        <span id="oMsg" class="muted" style="font-size:13px"></span>
+  const isNew = !existing;
+  const o = existing || {};
+  const c = Object.assign({}, o.cover || {});
+  // seed identity from top-level fields when the sheet hasn't been filled yet
+  if(c.customer==null) c.customer=o.customer||'';
+  if(c.contact==null)  c.contact =o.contact||'';
+  if(c.email==null)    c.email   =o.email||'';
+  if(c.phone==null)    c.phone   =o.phone||'';
+  if(c.po==null)       c.po      =o.po||'';
+  if(c.job==null)      c.job     =(o.title&&o.title!==o.name)?o.title:'';
+  if(c.deldate==null)  c.deldate =o.needBy||'';
+  if(c.ordernum==null) c.ordernum=o.orderNo||'';
+  if(c.acct==null)     c.acct    =CMAP[(c.customer||'').trim().toUpperCase()]||'';
+  // 4-digit match code: the programmer appends +CODE to the CAMduct file name so
+  // the export auto-links back to this sheet. Generated once, unique among open orders.
+  let matchCode = (existing && existing.matchCode) || c.matchCode || '';
+  if(!matchCode) matchCode = newMatchCode();
+  c.matchCode = matchCode;
+
+  const v =(id)=> esc(c[id]!=null?c[id]:'');
+  const on=(id)=> c[id]?'checked':'';
+  const opt=(id,val,label)=>`<option ${((c[id]||'')===val)?'selected':''}>${label!=null?label:val}</option>`;
+  const opts=(id,arr)=>arr.map(x=>opt(id,x)).join('');
+  const dlCust=BASE_CUSTOMERS.map(([n])=>`<option value="${esc(n)}">`).join('');
+  const dlJob =BASE_JOBS.map(([n])=>`<option value="${esc(n)}">`).join('');
+  const dlShip=['SHIP','P/U'].map(n=>`<option value="${n}">`).join('');
+
+  appEl.innerHTML=`<div class="cs">
+    <div class="masthead">
+      <img src="${LOGO_URI}" alt="Brookstone Industries">
+      <div class="title"><h1>Job / Shop Cover Sheet</h1><p>Fabrication Spec &amp; Routing</p></div>
+    </div>
+    <div class="matchbar">Match code <b>+${esc(matchCode)}</b><span>Programmer: add <b>+${esc(matchCode)}</b> to the end of the CAMduct file name when saving, and this sheet links to it automatically.</span><input type="hidden" id="cs_matchcode" value="${esc(matchCode)}"></div>
+    <div class="hdr">
+      <div class="f wide"><label>Customer</label><input id="cs_customer" list="cs_custList" autocomplete="off" value="${v('customer')}" placeholder="Type to search…"><datalist id="cs_custList">${dlCust}</datalist></div>
+      <div class="f"><label>Cust Acct #</label><input id="cs_acct" readonly value="${v('acct')}" placeholder="—"></div>
+      <div class="f"><label>Customer P.O. #</label><input id="cs_po" value="${v('po')}"></div>
+      <div class="f wide"><label>Ship To / Job</label><input id="cs_job" list="cs_jobList" autocomplete="off" value="${v('job')}" placeholder="Pick from list or type…"><datalist id="cs_jobList">${dlJob}</datalist></div>
+      <div class="f"><label>Project Buyer</label><input id="cs_buyer" value="${v('buyer')}"></div>
+      <div class="f"><label>Del Date</label><input id="cs_deldate" type="date" value="${v('deldate')}"></div>
+      <div class="f"><label>Job Contact</label><input id="cs_contact" value="${v('contact')}" placeholder="First name for the email"></div>
+      <div class="f wide"><label>Customer Email</label><input id="cs_email" type="email" autocomplete="off" value="${v('email')}"></div>
+      <div class="f"><label>Phone #</label><input id="cs_phone" type="tel" value="${v('phone')}"></div>
+      <div class="f"><label>C.S.R.</label><select id="cs_csr"><option value=""></option>${opts('csr',['PR','CH'])}</select></div>
+      <div class="f"><label>Ship / Pickup</label><input id="cs_shipto" list="cs_shipList" autocomplete="off" value="${v('shipto')}" placeholder="SHIP, P/U…"><datalist id="cs_shipList">${dlShip}</datalist></div>
+      <div class="f"><label>Freight Rate $</label><input id="cs_freight" value="${v('freight')}"></div>
+      <div class="f"><label>Delivery</label><select id="cs_delivery"><option value=""></option>${opts('delivery',['BEST WAY','W/C','OT'])}</select></div>
+      <div class="f"><label>Order # (once programmed)</label><input id="cs_ordernum" value="${v('ordernum')}" inputmode="numeric" placeholder="fills in later"></div>
+    </div>
+
+    <div class="panels">
+      <div class="col"><div class="col-tag">General</div>
+        <div class="card"><h3>Construction Standards</h3><div class="body">
+          <div class="row"><span class="rl">Standard</span><select id="cs_std"><option value=""></option>${opts('std',['SMACNA 2005','SMACNA 1995','UMC','SPECIAL GAUGES','OTHER'])}</select></div></div></div>
+        <div class="card"><h3>Material Type</h3><div class="body">
+          <div class="row"><span class="rl">Material</span><select id="cs_mat"><option value=""></option>${opts('mat',['G90 GALVANIZED','STAINLESS 304','STAINLESS 316','BLACK IRON','ALUMINUM','PAINT LOCK','OTHER'])}</select></div></div></div>
+        <div class="card"><h3>Job Components</h3><div class="body">
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_exposed" ${on('c_exposed')}><span>Exposed</span></label></div>
+          <div class="row"><span class="rl">Labels</span><select id="cs_labels"><option value=""></option>${opts('labels',['INSIDE (1)','OUTSIDE (1)','NONE'])}</select></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_beaded" ${on('c_beaded')}><span>Beaded 12&quot; O.C.</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_crossbreak" ${on('c_crossbreak')}><span>Crossbreak</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_tagged" ${on('c_tagged')}><span>Tagged</span></label></div></div></div>
+        <div class="card"><h3>Miscellaneous Job Req.</h3><div class="body">
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_wrapped" ${on('c_wrapped')}><span>Wrapped ends</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_bagged" ${on('c_bagged')}><span>Bagged fittings</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_angle" ${on('c_angle')}><span>Angle</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_tierods" ${on('c_tierods')}><span>Tierods installed</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_pocket" ${on('c_pocket')}><span>Pocket seal rect.</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_sealed" ${on('c_sealed')}><span>Sealed</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_damper" ${on('c_damper')}><span>Damper</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_soldered" ${on('c_soldered')}><span>Soldered</span></label></div></div></div>
       </div>
-    </div>`;
-  document.getElementById('oCancel').onclick=()=>{ editOrderName=null; if(existing){ openJob(existing.name); } else { job=null; go('home'); } };
-  document.getElementById('oSave').onclick=()=>{
-    const num=(document.getElementById('oNum').value||'').trim();
-    if(isNew && !num){ document.getElementById('oMsg').textContent='Order number is required.'; return; }
-    if(isNew && Store.get(num)){ document.getElementById('oMsg').textContent='Order '+num+' already exists — open it from the list to edit.'; return; }
-    const rec = existing || { name:num, orderNo:num, createdAt:Date.now(), items:[], pallets:[], palletSeq:0 };
-    rec.customer=document.getElementById('oCust').value.trim();
-    rec.company=document.getElementById('oCo').value.trim();
-    rec.email=document.getElementById('oEmail').value.trim();
-    rec.otype=document.getElementById('oType').value;
-    rec.needBy=document.getElementById('oDate').value;
-    rec.scheduledDate=document.getElementById('oSched').value || rec.needBy || '';
-    const hrs=document.getElementById('oHours').value.trim(); rec.laborHours = hrs===''?undefined:(parseFloat(hrs)||0);
-    rec.title=document.getElementById('oTitle').value.trim()||rec.title||num;
-    rec.status=document.getElementById('oStatus').value;
-    rec.priority=document.getElementById('oPri').checked;
-    normalizeOrder(rec);
-    Store.save(rec);
-    editOrderName=null; openJob(rec.name); toast(isNew?'Order created':'Saved');
-  };
+      <div class="col"><div class="col-tag">Rectangular</div>
+        <div class="card"><h3>Pressure Class</h3><div class="body">
+          <div class="row"><span class="rl">Class</span><select id="cs_rpc"><option value=""></option>${opts('rpc',['1/2"','1"','2"','3"','4"','OTHER'])}</select></div>
+          <div class="row"><span class="rl">Neg / Pos</span><select id="cs_rnp"><option value=""></option>${opts('rnp',['NEGATIVE','POSITIVE'])}</select></div></div></div>
+        <div class="card"><h3>End Connection</h3><div class="body">
+          <div class="row"><span class="rl">Connection</span><select id="cs_rec"><option value=""></option>${opts('rec',["STANDING 'S' & DRIVE",'SLIP AND DRIVE','DUCTMATE 35','TDC','EZ TDC','FLANGE','OTHER'])}</select></div>
+          <div class="row"><span class="rl">Detail</span><select id="cs_recd"><option value=""></option>${opts('recd',['STD','PER DETAIL','BUTYL','NEOPRENE'])}</select></div></div></div>
+        <div class="card"><h3>Fab Construction</h3><div class="body">
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_persmacna" ${on('c_persmacna')}><span>Per SMACNA</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_pitt" ${on('c_pitt')}><span>Pittsburgh seams</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_standing" ${on('c_standing')}><span>Standing seams</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_lap" ${on('c_lap')}><span>Lap seams</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_kd" ${on('c_kd')}><span>K.D. (knock-down)</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_migr" ${on('c_migr')}><span>MIG wire welded</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_prefabr" ${on('c_prefabr')}><span>Prefab</span></label></div></div></div>
+        <div class="card"><h3>Insulation</h3><div class="body">
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_matfaced" ${on('c_matfaced')}><span>Mat-faced liner</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_doublewall" ${on('c_doublewall')}><span>Doublewall</span></label></div></div></div>
+      </div>
+      <div class="col"><div class="col-tag">Round / Spiral</div>
+        <div class="card"><h3>Spiral / Coil Width</h3><div class="body">
+          <div class="row"><span class="rl">Width</span><input type="text" id="cs_coilwidth" value="${v('coilwidth')}" placeholder="e.g. L.S. PIPE / 60&quot;"></div></div></div>
+        <div class="card"><h3>End Connection</h3><div class="body">
+          <div class="row"><span class="rl">Connection</span><select id="cs_roec"><option value=""></option>${opts('roec',['FEMALE / MALE','ANGLE RINGS - BI','ANGLE RINGS - SS','VANSTONE FLANGE','DURA FLANGES','SPIRALMATE RINGS','OTHER'])}</select></div></div></div>
+        <div class="card"><h3>Fab Construction</h3><div class="body">
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_spot" ${on('c_spot')}><span>Spot weld</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_tack" ${on('c_tack')}><span>Tack welded</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_stitch" ${on('c_stitch')}><span>Stitch welded</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_migw" ${on('c_migw')}><span>MIG-wire welded</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_prefabro" ${on('c_prefabro')}><span>Prefab</span></label></div></div></div>
+        <div class="card"><h3>Insulation (I.D./O.D.)</h3><div class="body">
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_ccl1" ${on('c_ccl1')}><span>Coated C-liner 1&quot;</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_ccl15" ${on('c_ccl15')}><span>Coated C-liner 1.5&quot;</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_sp1" ${on('c_sp1')}><span>Spiracoustic Plus 1&quot;</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_sp2" ${on('c_sp2')}><span>Spiracoustic Plus 2&quot;</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_mf12" ${on('c_mf12')}><span>Mat-faced 1&quot;-2&quot;</span></label></div>
+          <div class="row"><label class="chk"><input type="checkbox" id="cs_c_fsk" ${on('c_fsk')}><span>FSK wrap 1.5&quot;-3&quot;</span></label></div></div></div>
+      </div>
+    </div>
+
+    <div class="card wide-card notes"><h3>Special Instructions / Additional Notes</h3><div class="body">
+      <textarea id="cs_notes">${v('notes')}</textarea></div></div>
+
+    <div class="card wide-card"><h3>Shop Staging &amp; Job Fields</h3><div class="body">
+      <div class="staging">
+        <div class="stg"><label>Standing S.</label><input type="number" min="0" id="cs_s_standingS" value="${v('s_standingS')}"></div>
+        <div class="stg"><label>Slips</label><input type="number" min="0" id="cs_s_slips" value="${v('s_slips')}"></div>
+        <div class="stg"><label>Standing Drives</label><input type="number" min="0" id="cs_s_standingD" value="${v('s_standingD')}"></div>
+        <div class="stg"><label>Drives</label><input type="number" min="0" id="cs_s_drives" value="${v('s_drives')}"></div>
+        <div class="stg"><label>TDC Cleats</label><input type="number" min="0" id="cs_s_tdc" value="${v('s_tdc')}"></div>
+        <div class="stg"><label>EZ Screws</label><input type="number" min="0" id="cs_s_ez" value="${v('s_ez')}"></div>
+        <div class="stg"><label>Nuts &amp; Bolts</label><input type="number" min="0" id="cs_s_nuts" value="${v('s_nuts')}"></div>
+        <div class="stg"><label>6&quot; Cleats</label><input type="number" min="0" id="cs_s_cleats" value="${v('s_cleats')}"></div>
+        <div class="stg"><label>Neoprene</label><input type="number" min="0" id="cs_s_neoprene" value="${v('s_neoprene')}"></div>
+        <div class="stg"><label>Butyl</label><input type="number" min="0" id="cs_s_butyl" value="${v('s_butyl')}"></div>
+      </div>
+      <div class="shoponly">
+        <div class="f"><label>Scheduled shop day</label><input id="cs_sched" type="date" value="${esc(o.scheduledDate||'')}"></div>
+        <div class="f"><label>Priority</label><select id="cs_pri"><option value="">No</option><option ${o.priority?'selected':''}>Yes</option></select></div>
+        <div class="f"><label>CAM File</label><input id="cs_camfile" value="${v('camfile')}"></div>
+      </div>
+    </div>
+
+    <div class="csbar noprint">
+      <button class="btn primary" id="csSave">${isNew?'Create order':'Save'}</button>
+      <button class="btn" id="csPrint">Print for programmer</button>
+      <button class="btn ghost" id="csCancel">Cancel</button>
+      <span id="csMsg" class="muted" style="font-size:13px"></span>
+    </div>
+  </div>`;
+
+  // customer -> acct #, job -> PO # auto-fill
+  const cust=document.getElementById('cs_customer'), acct=document.getElementById('cs_acct');
+  cust.addEventListener('input',()=>{ acct.value=CMAP[(cust.value||'').trim().toUpperCase()]||''; });
+  const jobEl=document.getElementById('cs_job'), poEl=document.getElementById('cs_po');
+  jobEl.addEventListener('input',()=>{ const po=JMAP[(jobEl.value||'').trim().toUpperCase()]; if(po!==undefined) poEl.value=po; });
+
+  document.getElementById('csCancel').onclick=()=>{ editOrderName=null; if(existing){ openJob(existing.name); } else { job=null; go('home'); } };
+  document.getElementById('csPrint').onclick=()=>{ document.body.classList.add('csprint'); window.print(); setTimeout(()=>document.body.classList.remove('csprint'),300); };
+  document.getElementById('csSave').onclick=()=>saveCoverSheet(existing, isNew);
+}
+
+// Every cover-sheet field id (minus the cs_ prefix) that we persist into record.cover
+const CS_FIELDS=['customer','acct','po','job','buyer','deldate','contact','email','phone','csr','shipto','freight','delivery','ordernum',
+  'std','mat','labels','rpc','rnp','rec','recd','coilwidth','roec','notes','camfile',
+  'c_exposed','c_beaded','c_crossbreak','c_tagged','c_wrapped','c_bagged','c_angle','c_tierods','c_pocket','c_sealed','c_damper','c_soldered',
+  'c_persmacna','c_pitt','c_standing','c_lap','c_kd','c_migr','c_prefabr','c_matfaced','c_doublewall',
+  'c_spot','c_tack','c_stitch','c_migw','c_prefabro','c_ccl1','c_ccl15','c_sp1','c_sp2','c_mf12','c_fsk',
+  's_standingS','s_slips','s_standingD','s_drives','s_tdc','s_ez','s_nuts','s_cleats','s_neoprene','s_butyl'];
+
+function saveCoverSheet(existing, isNew){
+  const cov={};
+  for(const f of CS_FIELDS){ const el=document.getElementById('cs_'+f); if(!el) continue; cov[f]=el.type==='checkbox'?el.checked:el.value.trim(); }
+  const mc=document.getElementById('cs_matchcode'); cov.matchCode = (mc&&mc.value) || (existing&&existing.cover&&existing.cover.matchCode) || '';
+  const ordernum=(cov.ordernum||'').trim();
+  const sched=(document.getElementById('cs_sched').value||'');
+  const priority=(document.getElementById('cs_pri').value==='Yes');
+  // start from the existing record, or a fresh temp-keyed one for a new sheet
+  let rec = existing || { name:'TMP-'+Date.now(), orderNo:'', createdAt:Date.now(), items:[], pallets:[], palletSeq:0, status:'Received' };
+  const oldName = rec.name;
+  rec.cover = cov;
+  // mirror identity onto the record so the email + schedule read it
+  rec.customer = cov.customer || rec.customer || '';
+  rec.contact  = cov.contact || '';
+  rec.email    = cov.email || '';
+  rec.phone    = cov.phone || '';
+  rec.po       = cov.po || '';
+  if(cov.job) rec.title = cov.job;
+  rec.needBy   = cov.deldate || rec.needBy || '';
+  rec.scheduledDate = sched || rec.scheduledDate || rec.needBy || '';
+  rec.priority = priority;
+  const sp=(cov.shipto||'').toUpperCase();
+  rec.otype = sp.startsWith('P') ? 'Pickup' : (sp.startsWith('S') ? 'Delivery' : (rec.otype||''));
+  // promote a temp record to the real order number once it's known
+  if(ordernum){ rec.orderNo=ordernum; rec.name=ordernum; }
+  normalizeOrder(rec);
+  Store.save(rec);
+  if(ordernum && oldName!==rec.name && /^TMP-/.test(oldName)) Store.remove(oldName);  // rename temp -> real
+  editOrderName=null; openJob(rec.name);
+  toast(isNew?'Order created':'Saved');
 }
 
 /* ---------- SCHEDULE BOARD ----------------------------------------------- */
@@ -767,7 +986,7 @@ function schedCard(j){
   const color = j.status==='Complete' ? 'var(--good)' : (p.pct>0?'var(--amber)':'var(--line)');
   return `<div class="schcard st-${statusSlug(j.status)}" data-open="${esc(j.name)}">
     <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span>${j.priority?'<span class="scpri">!</span>':''}</div>
-    <div class="scmeta">#${esc(j.orderNo||j.name)}${orderHours(j)?(' · '+fmtHr(orderHours(j))+' hr'):''}</div>
+    <div class="scmeta">${/^TMP-/.test(j.name)?'(no order # yet)':('#'+esc(j.orderNo||j.name))}${orderHours(j)?(' · '+fmtHr(orderHours(j))+' hr'):''}</div>
     <div class="sctitle">${esc(j.title||'')}</div>
     <div class="scbar"><i style="width:${p.pct}%;background:${color}"></i></div>
   </div>`;
@@ -1262,7 +1481,8 @@ function renderReport(){
       <td class="num mono">${rem>0?rem:0}</td><td>${pill}</td></tr>`;
   };
   appEl.innerHTML=`
-    <h1>${esc(job.customer||job.title||job.name)} — status</h1>
+    <h1>${esc(job.customer||job.title||job.name)} — status ${statusPill(job.status)}</h1>
+    ${job.emailSent?`<p class="sub" style="color:var(--good)">Customer notified${job.emailedAt?' · '+new Date(job.emailedAt).toLocaleString():''}</p>`:''}
     <p class="sub">${job.orderNo?'Order #<b>'+esc(job.orderNo)+'</b> · ':''}${job.location?'Location <b>'+esc(job.location)+'</b> · ':''}${job.title&&job.title!==job.name?esc(job.title)+' · ':''}Short pieces list the item number so you can look up the size on the shop sheet.</p>
 
     <h2>Short / not yet loaded (${short.length})</h2>
