@@ -85,6 +85,13 @@
     font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
   .focushint.on{color:var(--good)} .focushint.off{color:var(--bad)}
 
+  /* storage location (per order) */
+  .locrow{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:16px}
+  .loclabel{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;white-space:nowrap}
+  .locinput{flex:1;max-width:280px;font-family:var(--mono);font-size:20px;font-weight:700;letter-spacing:.04em;background:#0e1116;border:1px solid var(--line);border-radius:8px;color:var(--amber);padding:8px 12px}
+  .locinput:focus{outline:none;border-color:var(--amber)}
+  .locinput::placeholder{color:var(--muted);font-weight:500;font-size:14px;letter-spacing:0}
+
   /* manual entry (bad-label fallback) */
   .manual{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
   .manrow{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
@@ -498,7 +505,7 @@ function renderHome(){
 }
 function jobCard(j){
   const p=jobProgress(j);
-  const sub=[j.orderNo?('Order #'+j.orderNo):'', j.title&&j.title!==j.name?j.title:''].filter(Boolean).join(' · ');
+  const sub=[j.orderNo?('Order #'+j.orderNo):'', j.title&&j.title!==j.name?j.title:'', j.location?('📍 '+j.location):''].filter(Boolean).join(' · ');
   return `<div class="card" data-open="${esc(j.name)}" style="cursor:pointer">
     <div class="name">${esc(j.customer||j.title||j.name)}</div>
     ${sub?`<div class="meta" style="margin-bottom:6px">${esc(sub)}</div>`:''}
@@ -588,6 +595,10 @@ function renderScan(){
   appEl.innerHTML=`
     <h1>${esc(job.customer||job.title||job.name)}</h1>
     <p class="sub" style="margin:-2px 0 16px">${[job.orderNo?('Order #'+esc(job.orderNo)):'', job.title&&job.title!==job.name?esc(job.title):''].filter(Boolean).join(' · ')}</p>
+    <div class="locrow">
+      <span class="loclabel">Storage location</span>
+      <input id="jobLoc" class="locinput" value="${esc(job.location||'')}" placeholder="type the location, e.g. A  (Enter to save)" maxlength="40" autocomplete="off" spellcheck="false">
+    </div>
     <div class="stat">
       <div><div class="k" id="pctK">${p.pct}%</div><div class="l">Loaded</div></div>
       <div><div class="k mono">${p.load}/${p.total}</div><div class="l">Pieces</div></div>
@@ -630,6 +641,11 @@ function renderScan(){
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const v=inp.value; inp.value=''; handleScan(v); }});
   keepFocus(inp);
   document.getElementById('manualBtn').onclick=()=>toggleManual();
+  const loc=document.getElementById('jobLoc');
+  loc.addEventListener('input',()=>{ job.location=loc.value; clearTimeout(locSaveTimer); locSaveTimer=setTimeout(()=>Store.save(job),500); });
+  loc.addEventListener('change',()=>{ job.location=loc.value; Store.save(job); });
+  loc.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); job.location=loc.value.trim();
+    clearTimeout(locSaveTimer); Store.save(job); document.getElementById('scan').focus(); toast('Location saved'); }});
   // footer actions
   footerEl.classList.remove('hidden');
   footerEl.innerHTML=`
@@ -875,7 +891,7 @@ function renderReport(){
   };
   appEl.innerHTML=`
     <h1>${esc(job.customer||job.title||job.name)} — status</h1>
-    <p class="sub">${job.orderNo?'Order #<b>'+esc(job.orderNo)+'</b> · ':''}${job.title&&job.title!==job.name?esc(job.title)+' · ':''}Short pieces list the item number so you can look up the size on the shop sheet.</p>
+    <p class="sub">${job.orderNo?'Order #<b>'+esc(job.orderNo)+'</b> · ':''}${job.location?'Location <b>'+esc(job.location)+'</b> · ':''}${job.title&&job.title!==job.name?esc(job.title)+' · ':''}Short pieces list the item number so you can look up the size on the shop sheet.</p>
 
     <h2>Short / not yet loaded (${short.length})</h2>
     ${short.length?`<table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Loaded</th><th class="num">Short</th><th>Status</th></tr></thead>
@@ -920,13 +936,17 @@ function exportJob(name){
 }
 
 /* ---------- focus keeping + feedback beep + helpers ---------------------- */
-let focusTimer=null;
+let focusTimer=null, locSaveTimer=null;
 function keepFocus(inp){
   inp.focus();
   const hint=document.getElementById('focushint');
   const set=on=>{ if(!hint) return; hint.textContent=on?'Ready':'Tap to resume'; hint.className='focushint '+(on?'on':'off'); };
   inp.addEventListener('blur',()=>{ set(false);
-    clearTimeout(focusTimer); focusTimer=setTimeout(()=>{ if(view==='scan' && !manualOpen && document.getElementById('tagModal').classList.contains('hidden')) inp.focus(); },120); });
+    clearTimeout(focusTimer); focusTimer=setTimeout(()=>{
+      const ae=document.activeElement;
+      const elsewhere = ae && ae!==inp && ['INPUT','TEXTAREA','SELECT'].includes(ae.tagName);
+      if(view==='scan' && !manualOpen && !elsewhere && document.getElementById('tagModal').classList.contains('hidden')) inp.focus();
+    },120); });
   inp.addEventListener('focus',()=>set(true));
   document.addEventListener('click',e=>{ if(view!=='scan'||manualOpen) return;
     if(!e.target.closest('button') && !e.target.closest('input') && document.getElementById('tagModal').classList.contains('hidden')) inp.focus(); });
