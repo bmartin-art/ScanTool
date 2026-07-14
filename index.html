@@ -143,6 +143,10 @@
   .pill.loaded{background:#12331f;color:#7ee0a2}
   .pill.short{background:#331414;color:#f0a3a3}
   .pill.stock{background:#2a2333;color:#c9a8e6}
+  .pill.s-received{background:#2a3140;color:#aeb9cc}
+  .pill.s-programmed{background:#e8c20a;color:#241f00}
+  .pill.s-wip{background:var(--good);color:#04220c}
+  .pill.s-complete{background:#39424f;color:#c3ccdb}
 
   /* stock tiles */
   .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
@@ -211,10 +215,14 @@
   .ftlbl{font-size:13px;font-weight:700;line-height:1.25;text-transform:uppercase;letter-spacing:.06em}
   .ftlbl .muted{font-weight:600;letter-spacing:0;text-transform:none;font-size:12px}
   .schctrls{display:flex;gap:8px}
-  .board{display:grid;grid-template-columns:repeat(5,1fr) 0.8fr;gap:10px;align-items:start}
+  .board{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start}
   .daycol{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;min-height:220px}
   .daycol.today{border-color:var(--amber)}
-  .daycol.unsched{background:#191d25}
+  .unschedstrip{margin-top:14px;background:#191d25;border:1px solid var(--line);border-radius:12px;padding:12px}
+  .unschedhdr{font-weight:800;font-size:15px;margin-bottom:10px}
+  .unschedcards{display:flex;flex-wrap:wrap;gap:8px;min-height:40px}
+  .unschedcards .schcard{width:210px}
+  .unschedcards.draghot{outline:2px dashed var(--amber);outline-offset:3px;border-radius:8px}
   .dayhdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
   .dname{font-weight:800;font-size:15px}
   .ddate{color:var(--muted);font-weight:600;font-size:12px}
@@ -225,9 +233,12 @@
   .daybody{display:flex;flex-direction:column;gap:8px;min-height:60px}
   .daybody.draghot{outline:2px dashed var(--amber);outline-offset:3px;border-radius:8px}
   .dayempty{color:var(--line);text-align:center;padding:14px 0;font-size:13px}
-  .schcard{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;cursor:pointer}
+  .schcard{background:var(--panel2);border:1px solid var(--line);border-left:4px solid #3a4658;border-radius:8px;padding:9px 10px;cursor:pointer}
   .schcard:hover{border-color:#3d485b}
-  .schcard.done{opacity:.6}
+  .schcard.st-received{border-left-color:#3a4658}
+  .schcard.st-programmed{border-left-color:#e8c20a;background:rgba(232,194,10,.10)}
+  .schcard.st-wip{border-left-color:var(--good);background:rgba(34,197,94,.13)}
+  .schcard.st-complete{border-left-color:#3a4658;opacity:.45}
   .scrow{display:flex;justify-content:space-between;align-items:center;gap:6px}
   .scname{font-weight:700;font-size:14px;line-height:1.15}
   .scpri{color:var(--bad);font-weight:800}
@@ -438,11 +449,23 @@ function col(headers,names){
   for(const n of names){ const idx=headers.findIndex(h=>h.trim().toLowerCase()===n); if(idx>=0) return idx; }
   return -1;
 }
+// CAMduct "F time" is H:MM:SS per piece. Return hours (decimal).
+function parseFtime(s){
+  s=(s||'').trim(); if(!s) return 0;
+  const p=s.split(':').map(n=>parseInt(n,10));
+  if(p.some(isNaN)) return 0;
+  let sec=0;
+  if(p.length===3) sec=p[0]*3600+p[1]*60+p[2];
+  else if(p.length===2) sec=p[0]*60+p[1];
+  else sec=p[0];
+  return sec/3600;
+}
 function buildJobFromCSV(text, jobName){
   const rows=parseCSV(text);
   if(!rows.length) throw new Error('Empty file.');
   const H=rows[0].map(h=>h.trim().toLowerCase());
   const iGroup=col(H,['epicor group','group']);
+  const iFtime=col(H,['f time','ftime','fab time','time']);
   const iB64  =col(H,['item globally unique id (base64)','base64','item scan code (base64)']);
   const iGuid =col(H,['item globally unique id','guid']);
   const iQty  =col(H,['qty','quantity']);
@@ -452,17 +475,19 @@ function buildJobFromCSV(text, jobName){
   const iOrder=col(H,['order number','order no','order #','order']);
   if(iB64<0) throw new Error('No "Item Globally Unique ID (Base64)" column found — that is the scan key. Re-export with the Base64 column.');
 
-  const items=[]; let excludedLabor=0, excludedZero=0, seq=0, customer='', orderNo='';
+  const items=[]; let excludedLabor=0, excludedZero=0, seq=0, customer='', orderNo='', fabHours=0, laborLineHours=0;
   for(let r=1;r<rows.length;r++){
     const row=rows[r]; if(!row.length||row.every(c=>c==='')) continue;
     const group=(row[iGroup]||'').trim();
     const desc =(row[iDesc]||'').trim();
     const qty  =parseInt((row[iQty]||'0').trim(),10)||0;
     const key  =(row[iB64]||'').trim();
+    const feach=iFtime>=0 ? parseFtime(row[iFtime]) : 0;   // per-piece fab time (hours)
     if(!customer && iNotes>=0 && (row[iNotes]||'').trim()) customer=(row[iNotes]||'').trim();
     if(!orderNo && iOrder>=0 && (row[iOrder]||'').trim()) orderNo=(row[iOrder]||'').trim();
-    if(/labor/i.test(desc)){ excludedLabor++; continue; }
+    if(/labor/i.test(desc)){ excludedLabor++; if(qty>0) laborLineHours+=feach*qty; continue; }
     if(qty<=0){ excludedZero++; continue; }
+    fabHours += feach*qty;                                  // total = per-piece x quantity
     seq++;
     const itemNoRaw=(iItem>=0?(row[iItem]||'').trim():'')||String(seq);
     const type = group.toUpperCase()===STOCK_GROUP ? 'stock':'fab';
@@ -474,13 +499,13 @@ function buildJobFromCSV(text, jobName){
     const nums=itemNoRaw.split(',').map(s=>s.trim()).filter(Boolean);
     if(type==='stock' || keys.length<=1){
       items.push({ key, guid, itemNo:itemNoRaw, group,
-        desc:desc||'(no description)', qty, type, onTruck:0 });
+        desc:desc||'(no description)', qty, type, onTruck:0, fabEach:feach });
     } else {
       const per=Math.floor(qty/keys.length), extra=qty-per*keys.length;
       keys.forEach((k,idx)=>{
         const q=per+(idx<extra?1:0); if(q<=0) return;
         items.push({ key:k, guid:'', itemNo: nums[idx]||(itemNoRaw+'.'+(idx+1)),
-          group, desc:desc||'(no description)', qty:q, type, onTruck:0 });
+          group, desc:desc||'(no description)', qty:q, type, onTruck:0, fabEach:feach });
       });
     }
   }
@@ -489,10 +514,13 @@ function buildJobFromCSV(text, jobName){
     name: orderNo || jobName,          // storage key: order number is unique; job names can collide
     orderNo, customer, title:jobName,  // display fields
     company:'', email:'', otype:'', needBy:'', priority:false, status:'Received', scheduledDate:'', // front-office fields
+    laborHours: iFtime>=0 ? Math.round(fabHours*100)/100 : undefined,   // total CAM fab time
+    cover:{},                          // job-spec cover sheet data (filled in the app)
     createdAt:Date.now(),
     items, pallets:[], palletSeq:0,
     _summary:{ fabLines:fab.length, fabPieces:fab.reduce((s,i)=>s+i.qty,0),
-               stockLines:stock.length, excludedLabor, excludedZero }
+               stockLines:stock.length, excludedLabor, excludedZero,
+               fabHours:Math.round(fabHours*100)/100, laborLineHours:Math.round(laborLineHours*100)/100 }
   };
 }
 // Ensure older/records missing new fields get safe defaults when loaded.
@@ -505,6 +533,7 @@ function normalizeOrder(j){
   if(j.priority===undefined) j.priority=false;
   if(j.status===undefined) j.status='Received';
   if(j.scheduledDate===undefined) j.scheduledDate='';
+  if(j.cover===undefined || j.cover===null) j.cover={};
   if(!Array.isArray(j.items)) j.items=[];
   if(!Array.isArray(j.pallets)) j.pallets=[];
   return j;
@@ -524,10 +553,8 @@ function itemStatus(job,it){
   if(acc>=it.qty || palletQtyForKey(job,it.key,true)>0) return 'pallet';
   return 'fab';
 }
-function statusPill(s){
-  const map={'Received':'stock','Programmed':'fab','Work In Progress':'pallet','Complete':'loaded'};
-  return `<span class="pill ${map[s]||'fab'}">${esc(s||'Received')}</span>`;
-}
+function statusSlug(s){ return s==='Complete'?'complete':s==='Work In Progress'?'wip':s==='Programmed'?'programmed':'received'; }
+function statusPill(s){ return `<span class="pill s-${statusSlug(s)}">${esc(s||'Received')}</span>`; }
 
 /* ---------- scheduling / capacity ---------------------------------------- */
 const DAILY_CAPACITY = 50;   // shop hours available per day
@@ -653,10 +680,12 @@ function renderOrderForm(){
 function openSchedule(){ if(!weekStart) weekStart=mondayOf(new Date()); go('schedule'); }
 function renderSchedule(){
   if(!weekStart) weekStart=mondayOf(new Date());
-  const days=weekDays(weekStart);
+  const week1=weekDays(weekStart);
+  const nextStart=new Date(weekStart); nextStart.setDate(weekStart.getDate()+7);
+  const week2=weekDays(nextStart);
   const todayStr=ymd(new Date());
   const remToday=hoursRemaining(todayStr), schedToday=hoursScheduled(todayStr);
-  const unsched=Store.list().filter(j=>!j.scheduledDate);
+  const unsched=Store.list().filter(j=>!j.scheduledDate && j.status!=='Complete');   // completed drop off the unscheduled list
   const dayName=d=>d.toLocaleDateString('en-US',{weekday:'short'});
   const dayNum=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
@@ -692,17 +721,16 @@ function renderSchedule(){
       </div>
       <div class="schctrls">
         <button class="btn ghost" id="schHome">← Orders</button>
-        <button class="btn" id="tvToggle">${tvMode?'Exit TV':'📺 TV view'}</button>
+        <button class="btn" id="tvToggle">${tvMode?'Exit TV':'TV view'}</button>
       </div>
     </div>
-    <div class="board">
-      ${days.map(dayCol).join('')}
-      <div class="daycol unsched" data-day="">
-        <div class="dayhdr"><div class="dname">Unscheduled</div><div class="dcap">${unsched.length}</div></div>
-        <div class="capbar"><i style="width:0"></i></div>
-        <div class="daybody" data-drop="">${unsched.map(schedCard).join('') || '<div class="dayempty">—</div>'}</div>
-      </div>
-    </div>`;
+    <div class="board">${week1.map(dayCol).join('')}</div>
+    ${tvMode ? '' : `
+    <div class="board" style="margin-top:10px">${week2.map(dayCol).join('')}</div>
+    <div class="unschedstrip">
+      <div class="unschedhdr">Unscheduled <span class="muted">(${unsched.length})</span></div>
+      <div class="unschedcards" data-drop="">${unsched.map(schedCard).join('') || '<div class="dayempty">nothing waiting</div>'}</div>
+    </div>`}`;
 
   // week nav
   const shift=n=>{ weekStart=new Date(weekStart); weekStart.setDate(weekStart.getDate()+n*7); render(); };
@@ -737,7 +765,7 @@ function renderSchedule(){
 function schedCard(j){
   const p=jobProgress(j);
   const color = j.status==='Complete' ? 'var(--good)' : (p.pct>0?'var(--amber)':'var(--line)');
-  return `<div class="schcard ${j.status==='Complete'?'done':''}" data-open="${esc(j.name)}">
+  return `<div class="schcard st-${statusSlug(j.status)}" data-open="${esc(j.name)}">
     <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span>${j.priority?'<span class="scpri">!</span>':''}</div>
     <div class="scmeta">#${esc(j.orderNo||j.name)}${orderHours(j)?(' · '+fmtHr(orderHours(j))+' hr'):''}</div>
     <div class="sctitle">${esc(j.title||'')}</div>
@@ -782,7 +810,7 @@ function renderHome(){
     <p class="sub">Load a CAMduct export to start tracking a job, or open one already on this computer.</p>
     <div class="row" style="margin-bottom:18px">
       <button class="btn primary" id="newOrder">+ New order</button>
-      <button class="btn" id="schedBtn">📅 Schedule</button>
+      <button class="btn" id="schedBtn">Schedule</button>
       <button class="btn" id="newJob">New job from CSV</button>
       <button class="btn" id="openFile">Open job file (.json)</button>
       <button class="btn ghost" id="settingsBtn" style="margin-left:auto">Connection</button>
@@ -840,7 +868,7 @@ function filterCards(){
 }
 function jobCard(j){
   const p=jobProgress(j);
-  const sub=[j.orderNo?('Order #'+j.orderNo):'', j.title&&j.title!==j.name?j.title:'', j.location?('📍 '+j.location):''].filter(Boolean).join(' · ');
+  const sub=[j.orderNo?('Order #'+j.orderNo):'', j.title&&j.title!==j.name?j.title:'', j.location?('at '+j.location):''].filter(Boolean).join(' · ');
   const barColor = j.status==='Complete' ? 'var(--good)' : (p.pct>0 ? 'var(--amber)' : 'var(--line)');
   return `<div class="card" data-open="${esc(j.name)}" data-search="${esc(((j.orderNo||'')+' '+(j.customer||'')+' '+(j.title||'')+' '+(j.location||'')).toLowerCase())}" style="cursor:pointer">
     <div class="row" style="justify-content:space-between;align-items:flex-start">
