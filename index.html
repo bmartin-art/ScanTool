@@ -68,6 +68,7 @@
   /* ---- home / job cards ---- */
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card.pri{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
   .card .name{font-weight:700;font-size:18px;margin-bottom:6px}
   .card .meta{font-size:13px;color:var(--muted);font-family:var(--mono)}
   .card .bar-wrap{margin-top:12px}
@@ -254,6 +255,8 @@
   .scright{display:flex;align-items:center;gap:6px;flex:none}
   .scloc{font-family:var(--mono);font-weight:800;font-size:12px;line-height:1;color:var(--panel);background:var(--ink);border-radius:5px;padding:3px 6px;letter-spacing:.03em}
   .scpri{color:var(--bad);font-weight:800}
+  .schcard.pri{box-shadow:0 0 0 2px var(--bad)}
+  body.tv .schcard.pri{box-shadow:0 0 0 3px var(--bad)}
   .scmeta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
   .sctitle{font-size:12px;color:var(--muted);margin:2px 0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .scbar{height:5px;background:var(--inset);border-radius:99px;overflow:hidden}
@@ -311,6 +314,7 @@
   .cs .stg input{font-family:var(--mono);font-size:14px;text-align:center;border:1px solid var(--csline);border-radius:5px;padding:6px;background:var(--csfield)}
   .cs .shoponly{display:grid;grid-template-columns:repeat(3,1fr);gap:11px 18px;background:#fbe6d3;border-top:1px solid #e4c78a;padding:11px 12px;margin:8px -12px -9px}
   .cs .shoponly .f input,.cs .shoponly .f select{background:#fff}
+  .cs .statushint{font-size:11px;color:var(--csmuted);margin-top:10px}
   .cs .csbar{display:flex;align-items:center;gap:10px;margin-top:18px}
   /* print: only the cover sheet, form chrome stripped to plain text */
   @media print{
@@ -868,10 +872,12 @@ function renderOrderForm(){
         <div class="stg"><label>Butyl</label><input type="number" min="0" id="cs_s_butyl" value="${v('s_butyl')}"></div>
       </div>
       <div class="shoponly">
+        <div class="f"><label>Status</label><select id="cs_status">${['Received','Programmed','Work In Progress','Complete'].map(s=>`<option ${(o.status||'Received')===s?'selected':''}>${s}</option>`).join('')}</select></div>
         <div class="f"><label>Scheduled shop day</label><input id="cs_sched" type="date" value="${esc(o.scheduledDate||'')}"></div>
         <div class="f"><label>Priority</label><select id="cs_pri"><option value="">No</option><option ${o.priority?'selected':''}>Yes</option></select></div>
         <div class="f"><label>CAM File</label><input id="cs_camfile" value="${v('camfile')}"></div>
       </div>
+      <div class="statushint noprint">Setting status to <b>Complete</b> emails the customer the completion notice (once), if an email is on file.</div>
     </div>
 
     <div class="csbar noprint">
@@ -940,6 +946,16 @@ function saveCoverSheet(existing, isNew){
   const ordernum=(cov.ordernum||'').trim();
   const sched=(document.getElementById('cs_sched').value||'');
   const priority=(document.getElementById('cs_pri').value==='Yes');
+  const newStatus=document.getElementById('cs_status').value;
+  const prevStatus=(existing&&existing.status)||'';
+  // moving TO Complete will email the customer (once) — confirm first
+  if(newStatus==='Complete' && prevStatus!=='Complete'){
+    const em=(cov.email||(existing&&existing.email)||'').trim();
+    const msg = em
+      ? ('Mark this job Complete?\n\nThis emails the completion notice to '+em+((existing&&existing.emailSent)?' — but a notice was already sent, so it will NOT send again.':'.'))
+      : 'Mark this job Complete?\n\n(No customer email is on file, so no notice will be sent.)';
+    if(!confirm(msg)) return;
+  }
   // start from the existing record, or a fresh temp-keyed one for a new sheet
   let rec = existing || { name:'TMP-'+Date.now(), orderNo:'', createdAt:Date.now(), items:[], pallets:[], palletSeq:0, status:'Received' };
   const oldName = rec.name;
@@ -954,6 +970,7 @@ function saveCoverSheet(existing, isNew){
   rec.needBy   = cov.deldate || rec.needBy || '';
   rec.scheduledDate = sched || rec.scheduledDate || rec.needBy || '';
   rec.priority = priority;
+  rec.status = newStatus || rec.status || 'Received';
   const sp=(cov.shipto||'').toUpperCase();
   rec.otype = sp.startsWith('P') ? 'Pickup' : (sp.startsWith('S') ? 'Delivery' : (rec.otype||''));
   // promote a temp record to the real order number once it's known
@@ -1055,7 +1072,7 @@ function schedCard(j){
   const p=jobProgress(j);
   const color = j.status==='Complete' ? 'var(--good)' : (p.pct>0?'var(--amber)':'var(--line)');
   const loc=(j.location||'').trim();
-  return `<div class="schcard st-${statusSlug(j.status)}" data-open="${esc(j.name)}">
+  return `<div class="schcard st-${statusSlug(j.status)}${j.priority?' pri':''}" data-open="${esc(j.name)}">
     <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span><span class="scright">${j.priority?'<span class="scpri">!</span>':''}${loc?'<span class="scloc">'+esc(loc)+'</span>':''}</span></div>
     <div class="scmeta">${/^TMP-/.test(j.name)?'(no order # yet)':('#'+esc(j.orderNo||j.name))}${orderHours(j)?(' · '+fmtHr(orderHours(j))+' hr'):''}</div>
     <div class="sctitle">${esc(j.title||'')}</div>
@@ -1160,7 +1177,7 @@ function jobCard(j){
   const p=jobProgress(j);
   const sub=[j.orderNo?('Order #'+j.orderNo):'', j.title&&j.title!==j.name?j.title:'', j.location?('at '+j.location):''].filter(Boolean).join(' · ');
   const barColor = j.status==='Complete' ? 'var(--good)' : (p.pct>0 ? 'var(--amber)' : 'var(--line)');
-  return `<div class="card" data-open="${esc(j.name)}" data-search="${esc(((j.orderNo||'')+' '+(j.customer||'')+' '+(j.title||'')+' '+(j.location||'')).toLowerCase())}" style="cursor:pointer">
+  return `<div class="card${j.priority?' pri':''}" data-open="${esc(j.name)}" data-search="${esc(((j.orderNo||'')+' '+(j.customer||'')+' '+(j.title||'')+' '+(j.location||'')).toLowerCase())}" style="cursor:pointer">
     <div class="row" style="justify-content:space-between;align-items:flex-start">
       <div class="name">${esc(j.customer||j.title||j.name)}</div>
       ${statusPill(j.status)}
