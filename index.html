@@ -1118,7 +1118,9 @@ function renderSchedule(){
   const dayNum=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
   const dayCol=(d)=>{
-    const ds=ymd(d), list=ordersOn(ds), used=hoursScheduled(ds), rem=hoursRemaining(ds);
+    const ds=ymd(d), used=hoursScheduled(ds), rem=hoursRemaining(ds);
+    // completed jobs sink to the bottom; otherwise keep existing order
+    const list=ordersOn(ds).slice().sort((a,b)=>(a.status==='Complete'?1:0)-(b.status==='Complete'?1:0));
     const pct=Math.min(100, Math.round(used/DAILY_CAPACITY*100));
     const over=used>DAILY_CAPACITY;
     const isToday=ds===todayStr;
