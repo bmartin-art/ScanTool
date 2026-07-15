@@ -1103,6 +1103,8 @@ function printDeliveryTicket(d){
   setTimeout(()=>m.classList.add('hidden'),400);
 }
 
+/* ---------- SCHEDULE BOARD ----------------------------------------------- */
+function openSchedule(){ if(!weekStart) weekStart=mondayOf(new Date()); go('schedule'); }
 
 function renderSchedule(){
   if(!weekStart) weekStart=mondayOf(new Date());
