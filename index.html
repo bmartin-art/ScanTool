@@ -218,8 +218,8 @@
   .slip .tot{margin-top:14px;text-align:right;font-weight:700;font-size:15px}
   .slip .empty{color:#666;padding:20px 0;text-align:center}
   @media print{ body:not(.csprint) *{visibility:hidden}
-    body:not(.csprint) #tagModal,body:not(.csprint) #tagModal *,body:not(.csprint) #slipModal,body:not(.csprint) #slipModal *{visibility:visible}
-    body:not(.csprint) #tagModal,body:not(.csprint) #slipModal{position:absolute;inset:0;background:#fff;display:block}
+    body:not(.csprint) #tagModal,body:not(.csprint) #tagModal *,body:not(.csprint) #slipModal,body:not(.csprint) #slipModal *,body:not(.csprint) #delivModal,body:not(.csprint) #delivModal *{visibility:visible}
+    body:not(.csprint) #tagModal,body:not(.csprint) #slipModal,body:not(.csprint) #delivModal{position:absolute;inset:0;background:#fff;display:block}
     .tag,.slip{box-shadow:none;margin:0 auto} .noprint{display:none} }
 
   footer.actions{position:fixed;bottom:0;left:0;right:0;background:var(--panel);
@@ -274,6 +274,10 @@
   .scright{display:flex;align-items:center;gap:6px;flex:none}
   .scloc{font-family:var(--mono);font-weight:800;font-size:12px;line-height:1;color:var(--panel);background:var(--ink);border-radius:5px;padding:3px 6px;letter-spacing:.03em}
   .scpri{color:var(--bad);font-weight:800}
+  .scaddr{font-size:12px;color:var(--muted);margin-top:2px}
+  .deliv-card .dtag{font-family:var(--mono);font-weight:800;font-size:11px;padding:2px 6px;border-radius:5px;background:var(--info);color:#fff}
+  .deliv-card.third .dtag{background:var(--amber);color:#1a1400}
+  .deliv-card .dtprint{margin-top:8px;padding:5px 9px;font-size:12px;width:100%;justify-content:center;display:flex}
   .schcard.pri{box-shadow:0 0 0 2px var(--bad)}
   body.tv .schcard.pri{box-shadow:0 0 0 3px var(--bad)}
   .schact-overlay{position:fixed;inset:0;background:rgba(15,20,28,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
@@ -343,6 +347,22 @@
   .cs .shoponly{display:grid;grid-template-columns:repeat(3,1fr);gap:11px 18px;background:#fbe6d3;border-top:1px solid #e4c78a;padding:11px 12px;margin:8px -12px -9px}
   .cs .shoponly .f input,.cs .shoponly .f select{background:#fff}
   .cs .statushint{font-size:11px;color:var(--csmuted);margin-top:10px}
+  .cs .deliv-head{font-weight:700;margin-bottom:4px}
+  .cs .delivgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px 16px;margin-top:10px}
+  .cs .delivgrid.hidden{display:none}
+  .cs .delivgrid .f.wide2{grid-column:span 2}
+  #delivModal.hidden{display:none}
+  .dticket{max-width:720px;margin:0 auto;color:#14253b;font-size:15px}
+  .dticket .dt-head{display:flex;align-items:center;gap:16px;border-bottom:2px solid #14253b;padding-bottom:10px}
+  .dticket .dt-head img{height:52px}
+  .dticket .dt-ttl h1{margin:0;font-size:22px;letter-spacing:.1em;text-transform:uppercase}
+  .dticket .dt-ttl p{margin:2px 0 0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#b9610c;font-weight:700}
+  .dticket .dt-job{font-size:20px;font-weight:800;margin:16px 0 12px}
+  .dticket .dt-row{display:flex;gap:14px;padding:9px 0;border-bottom:1px solid #d3d9e0}
+  .dticket .dt-l{flex:0 0 150px;text-transform:uppercase;font-size:11px;letter-spacing:.08em;color:#6b7886;font-weight:700;align-self:center}
+  .dticket .dt-v{font-size:17px;font-weight:700}
+  .dticket .dt-sign{display:flex;gap:40px;margin-top:60px}
+  .dticket .dt-sign div{flex:1;border-top:1px solid #14253b;padding-top:6px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#6b7886}
   .cs .csbar{display:flex;align-items:center;gap:10px;margin-top:18px}
   /* print: only the cover sheet, form chrome stripped to plain text */
   @media print{
@@ -386,6 +406,7 @@
     .cards,.tiles{grid-template-columns:1fr;gap:12px}
     .board{grid-template-columns:1fr;gap:12px}
     .cs .hdr{grid-template-columns:1fr 1fr}
+    .cs .delivgrid{grid-template-columns:1fr 1fr}
     .cs .panels{grid-template-columns:1fr}
     .cs .staging{grid-template-columns:repeat(2,1fr)}
     .cs .shoponly{grid-template-columns:1fr}
@@ -458,6 +479,8 @@
     </div>
   </div>
 </div>
+
+<div id="delivModal" class="hidden"></div>
 
 <script>
 /* =========================================================================
@@ -740,7 +763,7 @@ function parseScan(raw){
    App state + routing
    ========================================================================= */
 let view='home', job=null, mode='truck', activePallet=null, editOrderName=null, weekStart=null, tvMode=false;
-let pollTimer=null, polling=false, lastHomeSig='', lastReportSig='', showCompleted=false, searchTerm='', lastSchedSig='';
+let pollTimer=null, polling=false, lastHomeSig='', lastReportSig='', showCompleted=false, searchTerm='', lastSchedSig='', lastDelivSig='';
 const appEl=document.getElementById('app');
 const footerEl=document.getElementById('footer');
 
@@ -753,8 +776,8 @@ async function startOrder(name){
 }
 
 function render(){
-  document.getElementById('homeBtn').classList.toggle('hidden', view==='home'||view==='settings'||view==='orderform'||view==='schedule');
-  document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home'||view==='settings'||view==='orderform'||view==='schedule');
+  document.getElementById('homeBtn').classList.toggle('hidden', view==='home'||view==='settings'||view==='orderform'||view==='schedule'||view==='delivery');
+  document.getElementById('jobtag').classList.toggle('hidden', !job||view==='home'||view==='settings'||view==='orderform'||view==='schedule'||view==='delivery');
   if(job) document.getElementById('jobtagName').textContent=job.orderNo||job.name;
   document.body.classList.toggle('tv', tvMode && view==='schedule');
   footerEl.classList.add('hidden'); footerEl.innerHTML='';
@@ -764,6 +787,7 @@ function render(){
   else if(view==='report') renderReport();
   else if(view==='orderform') renderOrderForm();
   else if(view==='schedule') renderSchedule();
+  else if(view==='delivery') renderDelivery();
   else if(view==='settings') renderSettings(!Cfg.ready());
 }
 document.getElementById('homeBtn').onclick=()=>{ job=null; go('home'); };
@@ -872,6 +896,7 @@ function renderOrderForm(){
           <div class="row"><label class="chk"><input type="checkbox" id="cs_c_prefabr" ${on('c_prefabr')}><span>Prefab</span></label></div></div></div>
         <div class="card"><h3>Insulation</h3><div class="body">
           <div class="row"><label class="chk"><input type="checkbox" id="cs_c_matfaced" ${on('c_matfaced')}><span>Mat-faced liner</span></label></div>
+          <div class="row"><span class="rl">Liner thickness</span><select id="cs_linerthk"><option value=""></option>${opts('linerthk',['1/2"','1"','1-1/2"','2"'])}</select></div>
           <div class="row"><label class="chk"><input type="checkbox" id="cs_c_doublewall" ${on('c_doublewall')}><span>Doublewall</span></label></div></div></div>
       </div>
       <div class="col"><div class="col-tag">Round / Spiral</div>
@@ -920,6 +945,21 @@ function renderOrderForm(){
       <div class="statushint noprint">Setting status to <b>Complete</b> emails the customer the completion notice (once), if an email is on file.</div>
     </div>
 
+    <div class="card wide-card"><h3>Delivery</h3><div class="body">
+      <label class="chk deliv-head"><input type="checkbox" id="cs_deliv_on" ${on('deliv_on')}><span>Schedule a delivery for this job</span></label>
+      <div id="deliv_fields" class="delivgrid${c.deliv_on?'':' hidden'}">
+        <div class="f"><label>Delivery date</label><input type="date" id="cs_deliv_date" value="${v('deliv_date')}"></div>
+        <div class="f"><label>Time</label><input type="text" id="cs_deliv_time" value="${v('deliv_time')}" placeholder="e.g. 8:00 AM"></div>
+        <div class="f"><label>Truck</label><select id="cs_deliv_carrier"><option value=""></option>${opts('deliv_carrier',['Our Truck','Third Party'])}</select></div>
+        <div class="f"><label>Truck size</label><select id="cs_deliv_truck"><option value=""></option>${opts('deliv_truck',["26'","53'",'Van','Box Truck'])}</select></div>
+        <div class="f"><label>Contact name</label><input type="text" id="cs_deliv_name" value="${v('deliv_name')}"></div>
+        <div class="f"><label>Contact number</label><input type="tel" id="cs_deliv_phone" value="${v('deliv_phone')}"></div>
+        <div class="f wide2"><label>Delivery address</label><input type="text" id="cs_deliv_addr" value="${v('deliv_addr')}"></div>
+        <div class="f wide2"><label>Delivery notes</label><input type="text" id="cs_deliv_notes" value="${v('deliv_notes')}"></div>
+        <div class="f wide2 noprint"><button type="button" class="btn" id="csPrintDeliv">Print delivery ticket</button></div>
+      </div>
+    </div></div>
+
     <div class="csbar noprint">
       <button class="btn primary" id="csSave">${isNew?'Create order':'Save'}</button>
       <button class="btn" id="csPrint">Print for programmer</button>
@@ -933,6 +973,11 @@ function renderOrderForm(){
   cust.addEventListener('input',()=>{ acct.value=CMAP[(cust.value||'').trim().toUpperCase()]||''; });
   const jobEl=document.getElementById('cs_job'), poEl=document.getElementById('cs_po');
   jobEl.addEventListener('input',()=>{ const po=JMAP[(jobEl.value||'').trim().toUpperCase()]; if(po!==undefined) poEl.value=po; });
+  // delivery section show/hide + print ticket
+  const dOn=document.getElementById('cs_deliv_on'), dFields=document.getElementById('deliv_fields');
+  if(dOn) dOn.addEventListener('change',()=>dFields.classList.toggle('hidden',!dOn.checked));
+  const dPrint=document.getElementById('csPrintDeliv');
+  if(dPrint) dPrint.onclick=()=>printDeliveryTicket(collectCoverForTicket());
 
   document.getElementById('csCancel').onclick=()=>{ editOrderName=null; if(existing){ openJob(existing.name); } else { job=null; go('home'); } };
   document.getElementById('csPrint').onclick=()=>{
@@ -973,11 +1018,12 @@ function csLeanForPrint(){
 
 // Every cover-sheet field id (minus the cs_ prefix) that we persist into record.cover
 const CS_FIELDS=['customer','acct','po','job','buyer','deldate','contact','email','phone','csr','shipto','freight','delivery','ordernum',
-  'std','mat','labels','rpc','rnp','rec','recd','coilwidth','roec','notes','camfile',
+  'std','mat','labels','rpc','rnp','rec','recd','coilwidth','roec','notes','camfile','linerthk',
   'c_exposed','c_beaded','c_crossbreak','c_tagged','c_wrapped','c_bagged','c_angle','c_tierods','c_pocket','c_sealed','c_damper','c_soldered',
   'c_persmacna','c_pitt','c_standing','c_lap','c_kd','c_migr','c_prefabr','c_matfaced','c_doublewall',
   'c_spot','c_tack','c_stitch','c_migw','c_prefabro','c_ccl1','c_ccl15','c_sp1','c_sp2','c_mf12','c_fsk',
-  's_standingS','s_slips','s_standingD','s_drives','s_tdc','s_ez','s_nuts','s_cleats','s_neoprene','s_butyl'];
+  's_standingS','s_slips','s_standingD','s_drives','s_tdc','s_ez','s_nuts','s_cleats','s_neoprene','s_butyl',
+  'deliv_on','deliv_date','deliv_time','deliv_carrier','deliv_truck','deliv_name','deliv_phone','deliv_addr','deliv_notes'];
 
 function saveCoverSheet(existing, isNew){
   const cov={};
@@ -1022,8 +1068,42 @@ function saveCoverSheet(existing, isNew){
   toast(isNew?'Order created':'Saved');
 }
 
-/* ---------- SCHEDULE BOARD ----------------------------------------------- */
-function openSchedule(){ if(!weekStart) weekStart=mondayOf(new Date()); go('schedule'); }
+// Read the live cover-sheet form (works before saving) for the delivery ticket.
+function collectCoverForTicket(){
+  const g=id=>{ const el=document.getElementById(id); return el?el.value.trim():''; };
+  return { customer:g('cs_customer'), job:g('cs_job'), ordernum:g('cs_ordernum'), po:g('cs_po'),
+    deliv_date:g('cs_deliv_date'), deliv_time:g('cs_deliv_time'), deliv_carrier:g('cs_deliv_carrier'),
+    deliv_truck:g('cs_deliv_truck'), deliv_name:g('cs_deliv_name'), deliv_phone:g('cs_deliv_phone'),
+    deliv_addr:g('cs_deliv_addr'), deliv_notes:g('cs_deliv_notes') };
+}
+// Build data object from a saved order record (for printing from the delivery board).
+function deliveryDataFromRecord(j){
+  const c=j.cover||{};
+  return { customer:j.customer||c.customer||'', job:j.title||c.job||'', ordernum:j.orderNo||'', po:j.po||c.po||'',
+    deliv_date:c.deliv_date||'', deliv_time:c.deliv_time||'', deliv_carrier:c.deliv_carrier||'',
+    deliv_truck:c.deliv_truck||'', deliv_name:c.deliv_name||'', deliv_phone:c.deliv_phone||'',
+    deliv_addr:c.deliv_addr||'', deliv_notes:c.deliv_notes||'' };
+}
+function printDeliveryTicket(d){
+  const m=document.getElementById('delivModal'); if(!m) return;
+  const row=(l,val)=> val ? `<div class="dt-row"><span class="dt-l">${l}</span><span class="dt-v">${esc(val)}</span></div>` : '';
+  m.innerHTML=`<div class="dticket">
+    <div class="dt-head"><img src="${LOGO_URI}" alt=""><div class="dt-ttl"><h1>Delivery Ticket</h1><p>Brookstone Industries</p></div></div>
+    <div class="dt-job">${esc(d.customer||'')}${d.job?(' — '+esc(d.job)):''}</div>
+    ${row('Order #', d.ordernum)}${row('P.O. #', d.po)}
+    ${row('Delivery date', d.deliv_date)}${row('Time', d.deliv_time)}
+    ${row('Truck', d.deliv_carrier)}${row('Truck size', d.deliv_truck)}
+    ${row('Address', d.deliv_addr)}
+    ${row('Contact', [d.deliv_name,d.deliv_phone].filter(Boolean).join('   ·   '))}
+    ${row('Notes', d.deliv_notes)}
+    <div class="dt-sign"><div>Driver signature</div><div>Received by</div></div>
+  </div>`;
+  m.classList.remove('hidden');
+  window.print();
+  setTimeout(()=>m.classList.add('hidden'),400);
+}
+
+
 function renderSchedule(){
   if(!weekStart) weekStart=mondayOf(new Date());
   const week1=weekDays(weekStart);
@@ -1145,6 +1225,58 @@ function schedCard(j){
 }
 function schedSig(){ return Store.list().map(j=>j.name+':'+j.scheduledDate+':'+jobProgress(j).load+'/'+jobProgress(j).total+':'+j.status+':'+(j.laborHours||0)+':'+(j.location||'')).join('|'); }
 
+/* ---------- DELIVERY SCHEDULE ------------------------------------------- */
+function openDelivery(){ if(!weekStart) weekStart=mondayOf(new Date()); go('delivery'); }
+function deliveriesOn(ds){ return Store.list().filter(j=>j.cover&&j.cover.deliv_on&&j.cover.deliv_date===ds); }
+function delivSig(){ return Store.list().filter(j=>j.cover&&j.cover.deliv_on).map(j=>j.name+':'+(j.cover.deliv_date||'')+':'+(j.cover.deliv_time||'')+':'+(j.cover.deliv_carrier||'')+':'+(j.cover.deliv_truck||'')).join('|'); }
+function delivCard(j){
+  const c=j.cover||{};
+  const meta=[c.deliv_time, [c.deliv_carrier,c.deliv_truck].filter(Boolean).join(' · ')].filter(Boolean).join('   ·   ');
+  const contact=[c.deliv_name,c.deliv_phone].filter(Boolean).join(' · ');
+  const tag=c.deliv_carrier==='Third Party'?'3RD':(c.deliv_carrier==='Our Truck'?'OUR':'');
+  return `<div class="schcard deliv-card${c.deliv_carrier==='Third Party'?' third':''}" data-open="${esc(j.name)}">
+    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span>${tag?`<span class="scright"><span class="dtag">${tag}</span></span>`:''}</div>
+    ${j.title?`<div class="sctitle">${esc(j.title)}</div>`:''}
+    ${meta?`<div class="scmeta">${esc(meta)}</div>`:''}
+    ${c.deliv_addr?`<div class="scaddr">${esc(c.deliv_addr)}</div>`:''}
+    ${contact?`<div class="scmeta">${esc(contact)}</div>`:''}
+    <button class="btn ghost dtprint" data-tick="${esc(j.name)}">Print ticket</button>
+  </div>`;
+}
+function renderDelivery(){
+  if(!weekStart) weekStart=mondayOf(new Date());
+  const wk=weekDays(weekStart);
+  const dayName=d=>d.toLocaleDateString('en-US',{weekday:'short'});
+  const dayNum=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const todayStr=ymd(new Date());
+  const noDate=Store.list().filter(j=>j.cover&&j.cover.deliv_on&&!j.cover.deliv_date);
+  const dayCol=d=>{ const ds=ymd(d), list=deliveriesOn(ds), isToday=ds===todayStr;
+    return `<div class="daycol ${isToday?'today':''}">
+      <div class="dayhdr"><div class="dname">${dayName(d)} <span class="ddate">${dayNum(d)}</span></div><div class="dcap">${list.length||''}</div></div>
+      <div class="daybody">${list.map(delivCard).join('')||'<div class="dayempty">—</div>'}</div></div>`;
+  };
+  appEl.innerHTML=`
+    <div class="schtop">
+      <div class="schtitle"><h1 style="margin:0">Delivery Schedule</h1>
+        <div class="weeknav"><button class="btn ghost" id="dwkPrev">← Prev</button><button class="btn ghost" id="dwkThis">This week</button><button class="btn ghost" id="dwkNext">Next →</button></div>
+      </div>
+      <div class="schctrls"><button class="btn ghost" id="dHome">← Orders</button></div>
+    </div>
+    <div class="board">${wk.map(dayCol).join('')}</div>
+    <div class="unschedstrip">
+      <div class="unschedhdr">Delivery set, no date yet <span class="muted">(${noDate.length})</span></div>
+      <div class="unschedcards">${noDate.map(delivCard).join('')||'<div class="dayempty">none</div>'}</div>
+    </div>`;
+  const shift=n=>{ weekStart=new Date(weekStart); weekStart.setDate(weekStart.getDate()+n*7); render(); };
+  document.getElementById('dwkPrev').onclick=()=>shift(-1);
+  document.getElementById('dwkNext').onclick=()=>shift(1);
+  document.getElementById('dwkThis').onclick=()=>{ weekStart=mondayOf(new Date()); render(); };
+  document.getElementById('dHome').onclick=()=>{ job=null; go('home'); };
+  appEl.querySelectorAll('.dtprint').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const j=Store.get(b.dataset.tick); if(j) printDeliveryTicket(deliveryDataFromRecord(j)); });
+  appEl.querySelectorAll('.deliv-card[data-open]').forEach(el=>el.onclick=()=>openOrderForm(el.dataset.open));
+  lastDelivSig=delivSig();
+}
+
 function renderSettings(first){
   const c=Cfg.get();
   appEl.innerHTML=`
@@ -1182,6 +1314,7 @@ function renderHome(){
     <div class="row" style="margin-bottom:18px">
       <button class="btn primary" id="newOrder">+ New order</button>
       <button class="btn" id="schedBtn">Schedule</button>
+      <button class="btn" id="delivBtn">Deliveries</button>
       <button class="btn" id="newJob">New job from CSV</button>
       <button class="btn" id="openFile">Open job file (.json)</button>
       <button class="btn ghost" id="settingsBtn" style="margin-left:auto">Connection</button>
@@ -1201,6 +1334,7 @@ function renderHome(){
   document.getElementById('newJob').onclick=()=>document.getElementById('csvFile').click();
   document.getElementById('newOrder').onclick=()=>openOrderForm(null);
   document.getElementById('schedBtn').onclick=()=>openSchedule();
+  document.getElementById('delivBtn').onclick=()=>openDelivery();
   document.getElementById('openFile').onclick=()=>document.getElementById('jsonFile').click();
   document.getElementById('settingsBtn').onclick=()=>go('settings');
   document.getElementById('csvFile').onchange=e=>loadCSVFile(e.target.files[0]);
@@ -1742,6 +1876,7 @@ async function liveTick(){
   else if(view==='report' && job){ const j=Store.get(job.name);
     if(j){ const sig=jobSig(j); if(sig!==lastReportSig){ lastReportSig=sig; job=j; renderReport(); } } }
   else if(view==='schedule'){ const sig=schedSig(); if(sig!==lastSchedSig){ lastSchedSig=sig; renderSchedule(); } }
+  else if(view==='delivery'){ const sig=delivSig(); if(sig!==lastDelivSig){ lastDelivSig=sig; renderDelivery(); } }
   else if(view==='scan' && job){ // update just the completion number in place, no redraw
     const j=Store.get(job.name); const pk=document.getElementById('pctK');
     if(j && pk && j!==job){ /* another device changed it; leave the scanner's own view intact */ } }
