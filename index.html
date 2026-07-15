@@ -2,8 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Duct Tracker — Brookstone</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#f4f6f9">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Duct Tracker">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -18,7 +25,7 @@
     --disp:"Archivo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
+  html,body{margin:0;height:100%;overscroll-behavior:none}
   body{background:var(--bg);color:var(--ink);font-family:var(--disp);
        -webkit-font-smoothing:antialiased;font-size:16px}
   button{font-family:var(--disp);cursor:pointer}
@@ -29,7 +36,8 @@
   /* ---- shell ---- */
   header.bar{display:flex;align-items:center;gap:14px;padding:12px 18px;
     background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
-  .logo{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:15px}
+  .logo{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:15px;display:flex;align-items:center;gap:9px}
+  .logomark{height:26px;width:26px;object-fit:contain;display:block}
   .logo b{color:var(--amber)}
   .bar .spacer{flex:1}
   .jobtag{font-family:var(--mono);font-size:13px;color:var(--muted);
@@ -306,15 +314,32 @@
   .cs .csbar{display:flex;align-items:center;gap:10px;margin-top:18px}
   /* print: only the cover sheet, form chrome stripped to plain text */
   @media print{
+    @page{ size:letter; margin:14mm }
+    .cs-hide{display:none !important}
     body.csprint > *{display:none !important}
     body.csprint #app{display:block !important}
     body.csprint #app > *:not(.cs){display:none !important}
     body.csprint .cs .noprint{display:none !important}
-    body.csprint .cs{background:#fff;padding:0}
-    body.csprint .cs input,body.csprint .cs select,body.csprint .cs textarea{-webkit-appearance:none;appearance:none;border:none !important;background:none !important;outline:none !important;color:var(--csink);border-bottom:1px solid var(--csline) !important;border-radius:0 !important;font-weight:700}
-    body.csprint .cs .panels{display:block;column-count:2;column-gap:9mm}
+    body.csprint .cs{background:#fff;padding:0;font-size:11px}
+    body.csprint .cs .masthead{padding:0 0 8px;border:none;border-bottom:2px solid var(--csink);border-radius:0}
+    body.csprint .cs .masthead img{height:44px}
+    body.csprint .cs .masthead .title h1{font-size:15px}
+    body.csprint .cs .matchbar{background:#fff;color:var(--csink);padding:4px 0;margin:4px 0 0;font-size:11px}
+    body.csprint .cs .matchbar b{color:var(--csink);font-size:14px}
+    body.csprint .cs .matchbar span{display:none}
+    body.csprint .cs .hdr{border:none;border-radius:0;padding:8px 0 10px;gap:6px 16px}
+    body.csprint .cs .hdr .f label{font-size:8px}
+    body.csprint .cs input,body.csprint .cs select,body.csprint .cs textarea{-webkit-appearance:none;appearance:none;border:none !important;background:none !important;outline:none !important;color:var(--csink);border-bottom:1px solid var(--csline) !important;border-radius:0 !important;font-weight:700;padding:1px 0 !important;font-size:12px}
+    body.csprint .cs .panels{display:block;column-count:2;column-gap:8mm;margin-top:8px}
+    body.csprint .cs .col{gap:6px}
+    body.csprint .cs .col-tag{font-size:9px;padding-bottom:1px}
     body.csprint .cs .card,body.csprint .cs .col{break-inside:avoid;page-break-inside:avoid}
-    body.csprint .cs .card{margin-bottom:6px}
+    body.csprint .cs .card{margin-bottom:5px}
+    body.csprint .cs .card>h3{font-size:9px;padding:3px 8px}
+    body.csprint .cs .card .body{padding:2px 8px 4px}
+    body.csprint .cs .row{min-height:0;padding:1.5px 0}
+    body.csprint .cs .staging{gap:5px 12px}
+    body.csprint .cs .wide-card,body.csprint .cs .notes{margin-top:6px}
     body.csprint .cs .card>h3,body.csprint .cs .masthead .title p{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
 
@@ -361,7 +386,7 @@
 </head>
 <body>
 <header class="bar">
-  <span class="logo">Duct<b>Tracker</b></span>
+  <span class="logo"><img id="brandMark" class="logomark" alt=""><span>Duct<b>Tracker</b></span></span>
   <span id="liveDot" class="live hidden"><i></i>live</span>
   <span class="spacer"></span>
   <span id="jobtag" class="jobtag hidden">ORDER <b id="jobtagName">—</b></span>
@@ -408,6 +433,8 @@
    ========================================================================= */
 
 const LOGO_URI="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMiIgZGF0YS1uYW1lPSJMYXllciAyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MjQuMTIgODI0LjEyIj4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmNscy0xIHsKICAgICAgICBmb250LWZhbWlseTogTWFudWZha3R1ci1VbHRyYUV4cGFuZGVkQmxhY2ssIE1hbnVmYWt0dXI7CiAgICAgICAgZm9udC1zaXplOiA0OC4yN3B4OwogICAgICAgIGZvbnQtd2VpZ2h0OiA4MDA7CiAgICAgIH0KCiAgICAgIC5jbHMtMSwgLmNscy0yIHsKICAgICAgICBmaWxsOiAjMTYzMTU4OwogICAgICB9CiAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIj4KICAgIDxnPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik00NjcuNDIsMzYzLjc0aC0xMDMuNjF2MzEuMzZoMTAzLjYxYzguNTMsMCwxNi4wNi02Ljc4LDE2LjA2LTE1LjhzLTcuNTItMTUuNTYtMTYuMDYtMTUuNTZaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMiIgZD0iTTYxOS4zOSw0NTUuNjdjLS41Ni0xLjg2LTI0LjU4LTE2LjgtMjktMjAuNTMtMTAuMzctOC43NS0xMi43Ny0yNC4zLTcuMDktMzYuMjQuNC0uODUsMS0xLjU5LDEuNzItMi4yLDkuMjgtNy43NywyMi4xMi0xMy42LDMwLjkyLTIxLjQxLDIuMDktMS44NSwzLjkyLTMuNjgsMy42Ni02Ljc0bC0xMy4wMi0zOS4wM2MtLjg0LTIuNTEtMy4wOC00LjI4LTUuNzItNC41MmgtLjA2Yy05LjI3LS44NC0yMi4zOCwxLjQxLTMxLjk4LDEuNjYtMTUuNDEuNC0yOC40OS0yMS4wMy0yNy4zLTI3LjE5LDIuMTEtMTAuOSwxMS43My0yNS43OSwxMy4yLTM3LjE0LjI5LTIuMjguMy0zLjY2LS4wNS00Ljc5LjMzLTIuMjgtLjc2LTMuODctMi4zNC01LjUyLTQuNi00Ljg0LTE5Ljk4LTE1LjMzLTI2LjE2LTE5LjM4LTYuNDktNC4yNS04LjI0LTcuMjgtMTYuMTctMi44Ny05LjE4LDUuMS0yMy42NCwyMS4zNy0zMiwyMy4xMi03LjU4LDEuNTgtMjMuODktMi45OS0yOC42LTkuODYtMy4zMS04LjM2LTguOTktMzQuNzctMTItMzguNy0uMTItLjI4LS4yMS0uNTctLjMzLS44NS0xLjY5LTIuNjktNi4yOC0zLjQ1LTkuNDYtMy42NS05LjE3LTIuMTgtMjAuMjYtMS4xMy0yOC4yNC4wNS0yLjUyLjA0LTUuMDMuMDYtNy41MSwwLTIuMjMtLjA2LTQuNDIuOTEtNS42MiwyLjc5LS4zLjQ3LS41OCwxLjAxLS44NywxLjY3LTQuNjIsMTAuNzMtNS45NywyNS45MS0xMC41MywzNi41Ny0yLjk3LDYuOTMtMTkuMDIsMTEuNzQtMjYuMDgsMTIuODEtMS43Mi4yNi0zLjQ3LS4yMS00Ljg3LTEuMjZsLTMzLjM3LTI0LjgxYy0yLjU4LTEuNjMtNC40NS0uNjQtNi44MS41MS01Ljk1LDIuODktMjUuNDIsMTcuNTgtMzEuMTYsMjIuMzYtMS45NSwxLjYzLTQuNSwzLjQyLTQuMTIsNi4yOGwyLjM0LDYuNTcsMTAuMjQsMzAuMzdjLjIyLjY3LjU3LDEuMjUuOTYsMS43OC4yLDEuNjcuMjIsMy4zNi0uMDksNS4wMi0uNSwyLjc0LTkuNDQsMTQuNDEtMTEuNzksMTYuOTYtMS43NiwxLjkxLTQuMzksNC40Ni03LDQuOTktMTEuMzUsMi4zMS0yOS4yMS0xLjI1LTQxLjQxLjE3LS4zOS4wNS0uODUuMjEtMS4zNS40Ni0yLjM5LDEuMTctNC4xMSwzLjM4LTQuOTMsNS45MS0zLjQ1LDEwLjYyLTEyLjg3LDMyLjMtMTAuNzMsMzkuMzcuNTYsMS44NiwyNC41OCwxNi44LDI5LDIwLjUzLDEwLjM3LDguNzUsMTIuNzcsMjQuMyw3LjA5LDM2LjI0LS40Ljg1LTEsMS41OS0xLjcyLDIuMi05LjI4LDcuNzctMjIuMTIsMTMuNi0zMC45MiwyMS40MS0yLjA5LDEuODUtMy45MiwzLjY4LTMuNjYsNi43NGwxMy4wMiwzOS4wM2MuODQsMi41MSwzLjA4LDQuMjgsNS43Miw0LjUyaC4wNmM5LjI3Ljg0LDIyLjM4LTEuNDEsMzEuOTgtMS42NiwxNS40MS0uNCwyOC40OSwyMS4wMywyNy4zLDI3LjE5LTIuMTEsMTAuOS0xMS43MywyNS43OS0xMy4yLDM3LjE0LS4yOSwyLjI4LS4zLDMuNjYuMDUsNC43OS0uMzMsMi4yOC43NiwzLjg3LDIuMzQsNS41Miw0LjYsNC44NCwxOS45OCwxNS4zMywyNi4xNiwxOS4zOCw2LjQ5LDQuMjUsOC4yNCw3LjI4LDE2LjE3LDIuODcsOS4xOC01LjEsMjMuNjQtMjEuMzcsMzItMjMuMTIsNy41OC0xLjU4LDIzLjg5LDIuOTksMjguNiw5Ljg2LDMuMzEsOC4zNiw4Ljk5LDM0Ljc3LDEyLDM4LjcuMTIuMjguMjEuNTcuMzMuODUsMS42OSwyLjY5LDYuMjgsMy40NSw5LjQ2LDMuNjUsOS4xNywyLjE4LDIwLjI2LDEuMTMsMjguMjQtLjA1LDIuNTItLjA0LDUuMDMtLjA2LDcuNTEsMCwyLjIzLjA2LDQuNDItLjkxLDUuNjItMi43OS4zLS40Ny41OC0xLjAxLjg3LTEuNjcsNC42Mi0xMC43Myw1Ljk3LTI1LjkxLDEwLjUzLTM2LjU3LDIuOTctNi45MywxOS4wMi0xMS43NCwyNi4wOC0xMi44MSwxLjcyLS4yNiwzLjQ3LjIxLDQuODcsMS4yNmwzMy4zNywyNC44MWMyLjU4LDEuNjMsNC40NS42NCw2LjgxLS41MSw1Ljk1LTIuODksMjUuNDItMTcuNTgsMzEuMTYtMjIuMzYsMS45NS0xLjYzLDQuNS0zLjQyLDQuMTItNi4yOGwtMi4zNC02LjU3LTEwLjI0LTMwLjM3Yy0uMjMtLjY3LS41Ny0xLjI1LS45Ni0xLjc4LS4yLTEuNjctLjIyLTMuMzYuMDktNS4wMi41LTIuNzQsOS40NC0xNC40MSwxMS43OS0xNi45NiwxLjc2LTEuOTEsNC4zOS00LjQ2LDctNC45OSwxMS4zNS0yLjMxLDI5LjIxLDEuMjUsNDEuNDEtLjE3LjM5LS4wNS44NS0uMjEsMS4zNS0uNDYsMi4zOS0xLjE3LDQuMTEtMy4zOCw0LjkzLTUuOTEsMy40NS0xMC42MiwxMi44Ny0zMi4zLDEwLjczLTM5LjM3Wk00NzguNzEsNDk5LjcyaC0xNzEuODZ2LTE3NS4zN2gxNzEuODZjNjIuNDcuNzUsNzMuNzYsODAuNzksMTcuMzEsODguMDYsNTYuNDUsNi43Nyw0NS4xNiw4Ny4zMS0xNy4zMSw4Ny4zMVoiLz4KICAgICAgPHBhdGggY2xhc3M9ImNscy0yIiBkPSJNNDY3LjQyLDQyOC45N2gtMTAzLjYxdjMyLjM2aDEwMy42MWM4LjUzLDAsMTYuMDYtNy4yOCwxNi4wNi0xNi4wNiwwLTkuMjgtNy41Mi0xNi4zMS0xNi4wNi0xNi4zMVoiLz4KICAgICAgPGc+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjMuNDcgNDQyLjI1KSByb3RhdGUoMTAxLjUpIj48dHNwYW4geD0iMCIgeT0iMCI+QjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjU0LjQ4IDQ4NC44MSkgcm90YXRlKDExMC45OSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NDAuMDggNTIxLjc4KSByb3RhdGUoMTE5LjkzKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlQ8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYyMC44NSA1NTUuMzEpIHJvdGF0ZSgxMjkuMjgpIj48dHNwYW4geD0iMCIgeT0iMCI+VDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTk2LjM3IDU4NS40NCkgcm90YXRlKDEzNy40NSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NjcuMTYgNjEyLjI1KSByb3RhdGUoMTQ2LjkzKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlI8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUyOS45OSA2MzUuMzIpIHJvdGF0ZSgxNTMuODQpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTE0LjU2IDY0Mi44KSByb3RhdGUoMTU3Ljc0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPiA8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ5OS40IDY0OS45OCkgcm90YXRlKDE2NS4xOSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5NPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NTIuMTcgNjYxLjg5KSByb3RhdGUoMTc1LjE0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPkU8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQxMi41OSA2NjUuMDYpIHJvdGF0ZSgtMTc2LjAxKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlQ8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM3NC4wMyA2NjIuNDEpIHJvdGF0ZSgtMTY2LjcpIj48dHNwYW4geD0iMCIgeT0iMCI+QTwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzMxLjggNjUxLjk5KSByb3RhdGUoLTE1Ny41MSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5MPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyOTcuNTkgNjM3LjEpIHJvdGF0ZSgtMTUxLjMyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPiA8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI4Mi42IDYyOC43OSkgcm90YXRlKC0xNDcuNDMpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjY4LjA4IDYyMC4yNykgcm90YXRlKC0xNDAuNzIpIj48dHNwYW4geD0iMCIgeT0iMCI+RjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjM3LjI1IDU5NS4yMikgcm90YXRlKC0xMzEuNykiPjx0c3BhbiB4PSIwIiB5PSIwIj5BPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMDguNTggNTYyLjU2KSByb3RhdGUoLTEyMi4yMikiPjx0c3BhbiB4PSIwIiB5PSIwIj5TPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODcuNTkgNTI4Ljg5KSByb3RhdGUoLTExMy4yOSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5UPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNzIuNDEgNDkzLjMpIHJvdGF0ZSgtMTA0LjQyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPkU8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2Mi41NCA0NTQuODkpIHJvdGF0ZSgtOTUuMDUpIj48dHNwYW4geD0iMCIgeT0iMCI+UjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU5LjYzIDQxMS4yMykgcm90YXRlKC04OC4yMSkiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNjAuMjYgMzk0LjA3KSByb3RhdGUoLTg0LjMyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPiA8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2MS4yNSAzNzcuMjkpIHJvdGF0ZSgtNzcuNDUpIj48dHNwYW4geD0iMCIgeT0iMCI+QjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTcxIDMzNC45NSkgcm90YXRlKC02Ny45NykiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODYuMDcgMjk4LjI0KSByb3RhdGUoLTU5LjA0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPlQ8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIwNi4xNCAyNjUuMTIpIHJvdGF0ZSgtNTAuMzUpIj48dHNwYW4geD0iMCIgeT0iMCI+VDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjMwLjk0IDIzNS4zNikgcm90YXRlKC00MS41MSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5FPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNjAuNjMgMjA5LjA5KSByb3RhdGUoLTMyLjAyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPlI8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI5OC4yMiAxODYuNykgcm90YXRlKC0yNS4xMSkiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzMTMuODEgMTc5LjUpIHJvdGF0ZSgtMjEuMjEpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzI5LjA4IDE3Mi42MSkgcm90YXRlKC0xMy43NykiPjx0c3BhbiB4PSIwIiB5PSIwIj5NPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNzYuNTEgMTYxLjU2KSByb3RhdGUoLTMuODMpIj48dHNwYW4geD0iMCIgeT0iMCI+RTwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDE2LjExIDE1OS4xKSByb3RhdGUoNS4wMikiPjx0c3BhbiB4PSIwIiB5PSIwIj5UPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NTQuNjUgMTYyLjQ1KSByb3RhdGUoMTQuMzUpIj48dHNwYW4geD0iMCIgeT0iMCI+QTwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDk2LjY5IDE3My42NCkgcm90YXRlKDIzLjU0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPkw8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUzMC42MiAxODkuMTcpIHJvdGF0ZSgyOS43MikiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NDUuNDYgMTk3Ljc0KSByb3RhdGUoMzMuNjEpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTU5LjggMjA2LjY2KSByb3RhdGUoMzkuOTYpIj48dHNwYW4geD0iMCIgeT0iMCI+RjwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTkwLjE4IDIzMi4xMSkgcm90YXRlKDQ5LjM0KSI+PHRzcGFuIHg9IjAiIHk9IjAiPkE8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYxOC4yNSAyNjUuMjkpIHJvdGF0ZSg1OC44MykiPjx0c3BhbiB4PSIwIiB5PSIwIj5TPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2MzguNjEgMjk5LjMzKSByb3RhdGUoNjcuNzUpIj48dHNwYW4geD0iMCIgeT0iMCI+VDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjUzLjE1IDMzNS4yMSkgcm90YXRlKDc2LjYyKSI+PHRzcGFuIHg9IjAiIHk9IjAiPkU8L3RzcGFuPjwvdGV4dD4KICAgICAgICA8dGV4dCBjbGFzcz0iY2xzLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY2Mi4zMiAzNzMuNzgpIHJvdGF0ZSg4NS45OSkiPjx0c3BhbiB4PSIwIiB5PSIwIj5SPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjQuNDQgNDE3LjUpIHJvdGF0ZSg5Mi44MykiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgICAgPHRleHQgY2xhc3M9ImNscy0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjMuNTEgNDM0LjY0KSByb3RhdGUoOTYuNzIpIj48dHNwYW4geD0iMCIgeT0iMCI+IDwvdHNwYW4+PC90ZXh0PgogICAgICAgIDx0ZXh0IGNsYXNzPSJjbHMtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjYxLjQxIDQ1MS42OCkgcm90YXRlKDEwMC42MikiPjx0c3BhbiB4PSIwIiB5PSIwIj4gPC90c3Bhbj48L3RleHQ+CiAgICAgIDwvZz4KICAgIDwvZz4KICA8L2c+Cjwvc3ZnPg==";
+
+{ const _bm=document.getElementById('brandMark'); if(_bm) _bm.src=LOGO_URI; }
 
 /* ---------- Connection config (Worker URL + shared access code) ----------
    Hardcoded defaults below so no one has to enter them. To rotate the code,
@@ -514,6 +541,8 @@ const STOCK_GROUP='STCKCAT';
 const BASE_CUSTOMERS=[["4 Dimonds Mechanical","4DM100"],["Advanced Comfort Specialists","ACS100"],["Advanced Cooling Technologies","ACT100"],["Air Management Technologies, Inc.","AIT100"],["Alltemp Enterprises Inc.","ALL100"],["Ameri-Tech","AMT100"],["Ames Construction Inc.","AME100"],["Antz Energy","ANT100"],["B&L Ott Heating and Air Conditioning, LLC","BLO100"],["Berkshire Mechanical","BER100"],["BMH Plumbing Heating & A/C","BMH100"],["Boalton Mechanical","BOA100"],["BRIAN'S HEATING & COOLING","BRI100"],["Brookstone Personal","BRO100"],["BRUBAKER, INC","BRU100"],["C Mechanical Service","CMS100"],["Carpenter Technology","CAT100"],["Clark Inc.","CLK100"],["CMC. INC.","CMC100"],["COMFORT AIRE H/C","COM100"],["Comfort Plus Htg & Air Conditioning LLC","CPH100"],["Conestoga Mechanical","CON100"],["Cooks Service Co.","COO100"],["COUNTY LINE MECHANICAL LLC","COU100"],["CS Wenger","CSW100"],["Custom Comfort Mechanical","CCM100"],["Daflure Heating and Cooling","DAF100"],["Dart Container","DAR100"],["DENTECH INC","DEN100"],["DN Printer Solutions","DNP100"],["Dolan Construction","DOL100"],["Doug Gochnauer","DOU100"],["Eastern Air Inc","EAS100"],["Eden Resorts","EDN100"],["EE Biss Heating and Cooling","EEB100"],["Elite Plumbing and Heating AC","EPH100"],["ENERGY WALL LLC","ENE100"],["Five Star Mechanical Contractors","FIV100"],["Flintrock Stables","FLI100"],["FLOW Mechanical, LLC","FLO100"],["GARDEN SPOT MECHANICAL INC","GSM100"],["GARY MARTIN & SONS INC","GAR100"],["GM Mechanical Inc.","GMM100"],["GROFF'S Heating AC & Plumbing, Inc","GRF100"],["GSM Industrial","GSI100"],["Haller Enterprises Inc","HAL100"],["Hammer Creek Holdings","HCH100"],["HB McClure Co","HBM100"],["Hector Moreno HVAC Pro","HMH100"],["Hightec HVAC","HIG100"],["Hirschberg Mechanical","HIR100"],["Hoem Incorparated","HOM100"],["IT Landes Company, LLC","ITL100"],["J & J HEATING & COOLING","JJH100"],["J I Properties LLC","JIP100"],["J&G Heating and Air Conditioning","JGH100"],["J.A. Smith Heating & Air Conditioning","JAS100"],["Jack Pears & Associates, LLC","JAC100"],["James Craft & Son, Inc.","JCS100"],["JK Mechanical Inc","JKM100"],["JM LAPP","JML100"],["JSL Mechanical, Inc.","JSL100"],["JWCS (Cincinnatus)","JWC100"],["JZ Enterprise","JZE100"],["Lanco Heating & Cooling","LAN100"],["Leibold Inc.","LEI100"],["LEO KOB CO, INC","LEO100"],["Les Weaver Heating & Air Conditioning","LES100"],["Lincoln Pavement","LIN100"],["Locust Hill Mechanical","LHM100"],["M&M Facility Services","MMF100"],["M&M Mechanical","MMM100"],["MARV'S PLUMBING","MAR100"],["Matchline Mechanical, LLC","MAT100"],["Midstate Mechanical","MSM100"],["Modern Heating, Cooling & Plumbing","MOD100"],["Monarch Enterprise Inc","MON100"],["MW Service","MWS100"],["Myco Mechanical","MYC100"],["N.B. Rogers","NBR100"],["North Bay Mechanical","NBM100"],["Premier Climate LLC","PCL100"],["Prime Home Contracting","PHC100"],["Printer Solutions","PRI100"],["Protech Mechanical Contractors","PRO100"],["Rad Electrical","RAD100"],["Rank Inc","RNK100"],["Rank Inc.","RAN100"],["RELIANT HEATING & COOLING","REL100"],["Remco Inc.","REM100"],["Ressler & Mateer, Inc.","RSM100"],["Reynolds Heating & Air Cond","REY100"],["RR HVAC Services, LLC","RRH100"],["S&S Heating and Air","SSH100"],["Schwanger Bro & Co","SWB100"],["Shannon A. Smith, Inc.","SHA100"],["Spangler & Boyer Mechanical Inc","SBM100"],["Swartley Bros. Engineers","SBE100"],["TEMPCHEK Mechanical Services, Inc","TEM100"],["The Cincinnatus Group","TCG100"],["Thermal Logistics, Inc","TML100"],["Thermotech Inc","THT100"],["Thirty, Inc. (dba Eden Resort)","THI100"],["Tier 1 Mechanical","TIE100"],["TM Heating & Cooling","TMH100"],["Tom Daly","TOM100"],["Total Temp Control LLC","TTC100"],["Triangle Refrigeration","TRI100"],["Vertex Mechanical","VTX100"],["W.C. Eshenaur & Son, Inc.","WCE100"],["Warfel Construction","WAR100"],["Weaver Energy","WEE100"],["WHITLEY EAST LLC","WHT100"],["Wohlsen Construction Company","WCC100"],["Yorkaire Inc","YOA100"],["Home Climates Inc","HCI100"],["RSC Heating & Air Conditioning LLC","RSC100"],["Scott Hogarth Heating","SHH100"],["Creative Energy","CRE100"],["Regal Restorations","RRE100"],["Boyd Wilson LLC","BYW100"],["Ferguson","FER100"],["Vision Mechanical INC","VIM100"],["Melcher Heating And Cooling","MCR100"],["The AC-Team","ATM100"],["Anchor Mechanical","ANM100"],["Cocalico Plumbing & Heating","CPA100"],["JBM","JBM100"],["Landis Brothers Mechanical","LBM100"],["Menco Mechanical","MEN100"],["Martins Climate Technologies","MCT100"],["New Energy Solutions","NES100"],["Stillman H&C LLC","SHC100"],["Mick's Pluming & Heating","MPH100"],["The Farfield Company","FAR100"],["Grapek Bates","GRB100"],["T.L. Wetzel & Sons. Inc.","TLW100"]];
 const BASE_JOBS=[["North Queen","100 0000 4659"],["Faulkner","100876"],["Tiger","3590"],["Amazon","10000019142"],["Pine Hill Storage","3579-2"],["OverLook Town Center","30371"],["Doylestown Rec Center","DCM-2"],["Ciporin Cottages","1264"],["United Zion","TW1473"],["Monroe Vo-Tech","72_Monroe"],["Charles River Labs","3620"],["Cumru Fire Dept","4157"],["Jura","452662"],["Trillium","10000048601"],["Ashbridge House","AHM-11"],["PSU Abington","2416008"],["Christ Wesleyan Church","4424"],["Aldi 98","1374"],["Overlook TC E","33708"],["Goddard School","10000033176"],["Jersey Shore MS Library","4412"],["Jersey Shore MS GYM","4412"],["Intrepidus","39655"],["Lancaster Catholic","460759"],["Grocery Outlet Abington","1400"],["Aldi #197","1377"],["Chase Bank Easton","8805001"],["501 Alexander Drive","501 Alexander"],["Lancaster Airport","AT2725-94064"],["Hershey West End","Hershey"],["Overlook TC F","31512"],["Memory Care Main","HLZH25021-20203"],["Mavis Tire","8768001"],["Sweet Valley","4397"],["Burkholder Tractor",""],["Chase Bank Trexlertown","8897002"],["RR Museum","004454"],["Cheltenham HS","258003"],["Cleveland White","3650"],["Eurofins A358","Eurofins A358"],["CRL Corridor","CRL Corridor"],["Pioneer Charter School","101095"],["VIA Lehigh Valley","H25086-2C"],["Shank Door","H558-15622"],["Valvoline","HLZH25077-24681"]];
 const CMAP={}, JMAP={};
+// Shop-standard specs pre-filled on a new cover sheet (matches the typical job)
+const CS_DEFAULTS={ std:'SMACNA 2005', mat:'G90 GALVANIZED', rpc:'2"', rnp:'POSITIVE', rec:"STANDING 'S' & DRIVE", c_persmacna:true };
 BASE_CUSTOMERS.forEach(([n,id])=>{ CMAP[n.trim().toUpperCase()]=id; });
 BASE_JOBS.forEach(([n,po])=>{ JMAP[n.trim().toUpperCase()]=po; });
 function col(headers,names){
@@ -721,6 +750,8 @@ function renderOrderForm(){
   if(c.deldate==null)  c.deldate =o.needBy||'';
   if(c.ordernum==null) c.ordernum=o.orderNo||'';
   if(c.acct==null)     c.acct    =CMAP[(c.customer||'').trim().toUpperCase()]||'';
+  // shop-standard defaults on a brand-new sheet (change only what differs per job)
+  if(isNew){ for(const k in CS_DEFAULTS){ if(c[k]==null||c[k]==='') c[k]=CS_DEFAULTS[k]; } }
   // 4-digit match code: the programmer appends +CODE to the CAMduct file name so
   // the export auto-links back to this sheet. Generated once, unique among open orders.
   let matchCode = (existing && existing.matchCode) || c.matchCode || '';
@@ -858,8 +889,40 @@ function renderOrderForm(){
   jobEl.addEventListener('input',()=>{ const po=JMAP[(jobEl.value||'').trim().toUpperCase()]; if(po!==undefined) poEl.value=po; });
 
   document.getElementById('csCancel').onclick=()=>{ editOrderName=null; if(existing){ openJob(existing.name); } else { job=null; go('home'); } };
-  document.getElementById('csPrint').onclick=()=>{ document.body.classList.add('csprint'); window.print(); setTimeout(()=>document.body.classList.remove('csprint'),300); };
+  document.getElementById('csPrint').onclick=()=>{
+    const restore=csLeanForPrint();
+    document.body.classList.add('csprint');
+    window.print();
+    setTimeout(()=>{ document.body.classList.remove('csprint'); restore(); },400);
+  };
   document.getElementById('csSave').onclick=()=>saveCoverSheet(existing, isNew);
+}
+
+// "Selections only": hide every empty field so the printout is compact and fits
+// one page — just the filled-in rows, cards, staging counts and header fields.
+function csLeanForPrint(){
+  const root=document.querySelector('.cs'); if(!root) return ()=>{};
+  const hidden=[]; const hide=el=>{ if(el){ el.classList.add('cs-hide'); hidden.push(el); } };
+  root.querySelectorAll('.row').forEach(row=>{
+    const cb=row.querySelector('input[type=checkbox]');
+    if(cb){ if(!cb.checked) hide(row); return; }
+    const el=row.querySelector('select,input[type=text]');
+    if(!el || !el.value.trim()) hide(row);
+  });
+  root.querySelectorAll('.hdr .f, .shoponly .f').forEach(f=>{
+    const el=f.querySelector('input,select'); const v=el?el.value.trim():'';
+    if(!v || v==='No') hide(f);
+  });
+  const notes=root.querySelector('.notes textarea'); if(notes && !notes.value.trim()) hide(notes.closest('.card'));
+  root.querySelectorAll('.stg').forEach(s=>{ const i=s.querySelector('input'); if(!parseFloat(i&&i.value)) hide(s); });
+  root.querySelectorAll('.card').forEach(card=>{
+    const kids=card.querySelectorAll('.row, .stg, textarea');
+    if(kids.length && ![...kids].some(k=>!k.classList.contains('cs-hide'))) hide(card);
+  });
+  root.querySelectorAll('.col').forEach(col=>{
+    if(![...col.querySelectorAll('.card')].some(c=>!c.classList.contains('cs-hide'))) hide(col);
+  });
+  return ()=>hidden.forEach(el=>el.classList.remove('cs-hide'));
 }
 
 // Every cover-sheet field id (minus the cs_ prefix) that we persist into record.cover
@@ -1607,6 +1670,11 @@ function homeSig(){ return Store.list().map(j=>{const p=jobProgress(j);
 function jobSig(j){ return j.items.map(i=>i.key+'='+loadedQty(j,i)).join(',')
   +'#'+j.pallets.map(p=>p.id+(p.loaded?'L':'')+':'+Object.values(p.contents).join('.')).join(','); }
 boot();
+
+/* PWA: register the service worker (installable, fullscreen, resilient on shop wifi). */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 </script>
 </body>
 </html>
