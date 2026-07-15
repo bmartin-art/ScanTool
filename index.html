@@ -11,9 +11,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{
-    --bg:#14171C; --panel:#1D222B; --panel2:#232A35; --line:#2E3746;
-    --ink:#E7ECF3; --muted:#8A93A2; --amber:#FFB020;
-    --good:#22C55E; --bad:#EF4444; --warn:#FFB020; --info:#3B82F6;
+    --bg:#f4f6f9; --panel:#ffffff; --panel2:#eef2f7; --line:#d9dfe7; --inset:#eef2f7;
+    --ink:#1a2230; --muted:#68727f; --amber:#E8930C;
+    --good:#1f9d52; --bad:#dc3b3b; --warn:#E8930C; --info:#2f74d0;
     --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
     --disp:"Archivo",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   }
@@ -53,7 +53,7 @@
   .btn.primary{background:var(--amber);color:#1a1400;border-color:var(--amber)}
   .btn.primary:hover{filter:brightness(1.06)}
   .btn.ghost{background:transparent}
-  .btn.danger{color:#ffd7d7;border-color:#5a2b2b;background:#241a1a}
+  .btn.danger{color:#b23434;border-color:#e6b0b0;background:#fbe3e3}
   .btn:disabled{opacity:.4;cursor:not-allowed}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 
@@ -63,7 +63,7 @@
   .card .name{font-weight:700;font-size:18px;margin-bottom:6px}
   .card .meta{font-size:13px;color:var(--muted);font-family:var(--mono)}
   .card .bar-wrap{margin-top:12px}
-  .prog{height:8px;background:#0e1116;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+  .prog{height:8px;background:var(--inset);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
   .prog > i{display:block;height:100%;background:var(--good);width:0}
   .drop{border:1.5px dashed var(--line);border-radius:12px;padding:26px;text-align:center;
     background:var(--panel);color:var(--muted)}
@@ -73,7 +73,7 @@
   .doneheader .chev{display:inline-block;font-size:10px;transition:transform .15s}
   .doneheader .chev.open{transform:rotate(90deg)}
 
-  input[type=text]{font-family:var(--disp);background:#0e1116;border:1px solid var(--line);
+  input[type=text]{font-family:var(--disp);background:var(--inset);border:1px solid var(--line);
     color:var(--ink);border-radius:8px;padding:11px 12px;font-size:15px}
   input[type=text]:focus{outline:none;border-color:var(--amber)}
 
@@ -88,7 +88,7 @@
 
   .scanwrap{position:relative}
   .scaninput{width:100%;font-family:var(--mono);font-size:20px;padding:16px 16px;
-    background:#0e1116;border:1px solid var(--line);border-radius:10px;color:var(--ink);letter-spacing:.02em}
+    background:var(--inset);border:1px solid var(--line);border-radius:10px;color:var(--ink);letter-spacing:.02em}
   .scaninput:focus{outline:none;border-color:var(--amber)}
   .focushint{position:absolute;right:14px;top:50%;transform:translateY(-50%);
     font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
@@ -97,7 +97,7 @@
   /* storage location (per order) */
   .locrow{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:16px}
   .loclabel{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;white-space:nowrap}
-  .locinput{flex:1;max-width:280px;font-family:var(--mono);font-size:20px;font-weight:700;letter-spacing:.04em;background:#0e1116;border:1px solid var(--line);border-radius:8px;color:var(--amber);padding:8px 12px}
+  .locinput{flex:1;max-width:280px;font-family:var(--mono);font-size:20px;font-weight:700;letter-spacing:.04em;background:var(--inset);border:1px solid var(--line);border-radius:8px;color:var(--amber);padding:8px 12px}
   .locinput:focus{outline:none;border-color:var(--amber)}
   .locinput::placeholder{color:var(--muted);font-weight:500;font-size:14px;letter-spacing:0}
 
@@ -106,7 +106,7 @@
   .manrow{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
   .manfield{display:flex;flex-direction:column;gap:6px}
   .manfield label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
-  .manfield input{font-family:var(--mono);font-size:20px;padding:12px;background:#0e1116;border:1px solid var(--line);border-radius:8px;color:var(--ink)}
+  .manfield input{font-family:var(--mono);font-size:20px;padding:12px;background:var(--inset);border:1px solid var(--line);border-radius:8px;color:var(--ink)}
   .manfield input:focus{outline:none;border-color:var(--amber)}
   .maninfo{margin-top:10px;font-size:14px;color:var(--muted)}
   .maninfo.good{color:#7ee0a2} .maninfo.bad{color:#f0a3a3}
@@ -115,9 +115,9 @@
   .feedback{margin-top:14px;border-radius:14px;padding:22px 22px;min-height:132px;
     display:flex;flex-direction:column;justify-content:center;border:1px solid var(--line);
     background:var(--panel);transition:background .08s,border-color .08s}
-  .feedback.good{background:#0f2a19;border-color:#1f6b3f}
-  .feedback.bad{background:#2a1414;border-color:#7a2b2b}
-  .feedback.warn{background:#2a2410;border-color:#6b5410}
+  .feedback.good{background:#e2f6ea;border-color:#34a866}
+  .feedback.bad{background:#fbe3e3;border-color:#d85656}
+  .feedback.warn{background:#fcf1d6;border-color:#d9a520}
   .feedback .fbtop{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
   .feedback .fbmain{font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.01em}
   .feedback .fbcount{font-family:var(--mono);font-size:44px;font-weight:700;margin-top:8px}
@@ -138,15 +138,15 @@
   tr.done td{color:var(--muted)}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;
     letter-spacing:.06em;text-transform:uppercase}
-  .pill.fab{background:#22303f;color:#9fc4ec}
-  .pill.pallet{background:#332a10;color:var(--amber)}
-  .pill.loaded{background:#12331f;color:#7ee0a2}
-  .pill.short{background:#331414;color:#f0a3a3}
-  .pill.stock{background:#2a2333;color:#c9a8e6}
-  .pill.s-received{background:#2a3140;color:#aeb9cc}
-  .pill.s-programmed{background:#e8c20a;color:#241f00}
-  .pill.s-wip{background:var(--good);color:#04220c}
-  .pill.s-complete{background:#39424f;color:#c3ccdb}
+  .pill.fab{background:#e3edfb;color:#1e5aa8}
+  .pill.pallet{background:#fbeecb;color:#8a5a00}
+  .pill.loaded{background:#dcf3e6;color:#1f7a44}
+  .pill.short{background:#fbe0e0;color:#b23434}
+  .pill.stock{background:#f0e6fa;color:#7a44a8}
+  .pill.s-received{background:#e7ebf1;color:#566276}
+  .pill.s-programmed{background:#fbe7a0;color:#6b5300}
+  .pill.s-wip{background:#d7f0e0;color:#1f7a44}
+  .pill.s-complete{background:#e7ebf1;color:#68727f}
 
   /* stock tiles */
   .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
@@ -189,9 +189,9 @@
   .slip td.num,.slip th.num{text-align:right}
   .slip .tot{margin-top:14px;text-align:right;font-weight:700;font-size:15px}
   .slip .empty{color:#666;padding:20px 0;text-align:center}
-  @media print{ body *{visibility:hidden}
-    #tagModal,#tagModal *,#slipModal,#slipModal *{visibility:visible}
-    #tagModal,#slipModal{position:absolute;inset:0;background:#fff;display:block}
+  @media print{ body:not(.csprint) *{visibility:hidden}
+    body:not(.csprint) #tagModal,body:not(.csprint) #tagModal *,body:not(.csprint) #slipModal,body:not(.csprint) #slipModal *{visibility:visible}
+    body:not(.csprint) #tagModal,body:not(.csprint) #slipModal{position:absolute;inset:0;background:#fff;display:block}
     .tag,.slip{box-shadow:none;margin:0 auto} .noprint{display:none} }
 
   footer.actions{position:fixed;bottom:0;left:0;right:0;background:var(--panel);
@@ -202,7 +202,7 @@
   /* order entry form */
   .frow{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
   .frow label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
-  .frow input[type=text],.frow input[type=date],.frow select{background:#0e1116;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:11px 12px;font-size:15px;font-family:var(--disp)}
+  .frow input[type=text],.frow input[type=date],.frow select{background:var(--inset);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:11px 12px;font-size:15px;font-family:var(--disp)}
   .frow input:focus,.frow select:focus{outline:none;border-color:var(--amber)}
 
   /* schedule board */
@@ -218,7 +218,7 @@
   .board{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start}
   .daycol{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;min-height:220px}
   .daycol.today{border-color:var(--amber)}
-  .unschedstrip{margin-top:14px;background:#191d25;border:1px solid var(--line);border-radius:12px;padding:12px}
+  .unschedstrip{margin-top:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
   .unschedhdr{font-weight:800;font-size:15px;margin-bottom:10px}
   .unschedcards{display:flex;flex-wrap:wrap;gap:8px;min-height:40px}
   .unschedcards .schcard{width:210px}
@@ -228,9 +228,11 @@
   .ddate{color:var(--muted);font-weight:600;font-size:12px}
   .dcap{font-family:var(--mono);font-size:12px;color:var(--muted)}
   .dcap.over{color:var(--bad);font-weight:700}
-  .capbar{height:5px;background:#0e1116;border-radius:99px;overflow:hidden;border:1px solid var(--line);margin-bottom:10px}
+  .capbar{height:5px;background:var(--inset);border-radius:99px;overflow:hidden;border:1px solid var(--line);margin-bottom:10px}
   .capbar > i{display:block;height:100%}
-  .daybody{display:flex;flex-direction:column;gap:8px;min-height:60px}
+  .daybody{display:flex;flex-direction:column;gap:8px;height:460px;overflow-y:auto;padding-right:4px}
+  .daybody::-webkit-scrollbar{width:8px}
+  .daybody::-webkit-scrollbar-thumb{background:#c2cad4;border-radius:99px}
   .daybody.draghot{outline:2px dashed var(--amber);outline-offset:3px;border-radius:8px}
   .dayempty{color:var(--line);text-align:center;padding:14px 0;font-size:13px}
   .schcard{background:var(--panel2);border:1px solid var(--line);border-left:4px solid #3a4658;border-radius:8px;padding:9px 10px;cursor:pointer}
@@ -241,10 +243,12 @@
   .schcard.st-complete{border-left-color:#3a4658;opacity:.45}
   .scrow{display:flex;justify-content:space-between;align-items:center;gap:6px}
   .scname{font-weight:700;font-size:14px;line-height:1.15}
+  .scright{display:flex;align-items:center;gap:6px;flex:none}
+  .scloc{font-family:var(--mono);font-weight:800;font-size:12px;line-height:1;color:var(--panel);background:var(--ink);border-radius:5px;padding:3px 6px;letter-spacing:.03em}
   .scpri{color:var(--bad);font-weight:800}
   .scmeta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
   .sctitle{font-size:12px;color:var(--muted);margin:2px 0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .scbar{height:5px;background:#0e1116;border-radius:99px;overflow:hidden}
+  .scbar{height:5px;background:var(--inset);border-radius:99px;overflow:hidden}
   .scbar > i{display:block;height:100%}
   /* TV mode: big, read-only, for the shop screen */
   body.tv .bar,body.tv footer.actions{display:none}
@@ -255,9 +259,11 @@
   body.tv .schtitle h1{font-size:34px}
   body.tv .dname{font-size:20px}
   body.tv .scname{font-size:18px}
+  body.tv .scloc{font-size:15px;padding:4px 8px}
   body.tv .scmeta,body.tv .sctitle{font-size:14px}
   body.tv .dcap{font-size:15px}
   body.tv .daycol{min-height:70vh}
+  body.tv .daybody{height:74vh}
 
   /* ===== cover sheet (scoped under .cs, light theme, isolated from the app) ===== */
   .cs{--csink:#14253b;--cssteel:#3c4f63;--csmuted:#6b7886;--csline:#d3d9e0;--csline2:#e5e9ee;--csaccent:#e07b1a;--csfield:#fffdf6;
@@ -327,6 +333,7 @@
     .cs .staging{grid-template-columns:repeat(2,1fr)}
     .cs .shoponly{grid-template-columns:1fr}
     .daycol{min-height:0}
+    .daybody{height:auto;overflow:visible}
     .floortoday{margin-left:0;width:100%;justify-content:center}
     .schtop{gap:12px}
     .card{padding:14px}
@@ -984,14 +991,15 @@ function renderSchedule(){
 function schedCard(j){
   const p=jobProgress(j);
   const color = j.status==='Complete' ? 'var(--good)' : (p.pct>0?'var(--amber)':'var(--line)');
+  const loc=(j.location||'').trim();
   return `<div class="schcard st-${statusSlug(j.status)}" data-open="${esc(j.name)}">
-    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span>${j.priority?'<span class="scpri">!</span>':''}</div>
+    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span><span class="scright">${j.priority?'<span class="scpri">!</span>':''}${loc?'<span class="scloc">'+esc(loc)+'</span>':''}</span></div>
     <div class="scmeta">${/^TMP-/.test(j.name)?'(no order # yet)':('#'+esc(j.orderNo||j.name))}${orderHours(j)?(' · '+fmtHr(orderHours(j))+' hr'):''}</div>
     <div class="sctitle">${esc(j.title||'')}</div>
     <div class="scbar"><i style="width:${p.pct}%;background:${color}"></i></div>
   </div>`;
 }
-function schedSig(){ return Store.list().map(j=>j.name+':'+j.scheduledDate+':'+jobProgress(j).load+'/'+jobProgress(j).total+':'+j.status+':'+(j.laborHours||0)).join('|'); }
+function schedSig(){ return Store.list().map(j=>j.name+':'+j.scheduledDate+':'+jobProgress(j).load+'/'+jobProgress(j).total+':'+j.status+':'+(j.laborHours||0)+':'+(j.location||'')).join('|'); }
 
 function renderSettings(first){
   const c=Cfg.get();
