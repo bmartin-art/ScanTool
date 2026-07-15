@@ -276,6 +276,15 @@
   .scpri{color:var(--bad);font-weight:800}
   .schcard.pri{box-shadow:0 0 0 2px var(--bad)}
   body.tv .schcard.pri{box-shadow:0 0 0 3px var(--bad)}
+  .schact-overlay{position:fixed;inset:0;background:rgba(15,20,28,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
+  .schact{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;width:min(94vw,440px);display:flex;flex-direction:column;gap:12px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .schact-name{font-size:20px;font-weight:800}
+  .schact-sub{color:var(--muted);font-size:14px;margin-bottom:6px;display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .btn.lg{display:flex;padding:15px 16px;font-size:16px;width:100%;justify-content:center;text-align:center}
+  body.tv .schact{width:min(72vw,600px);padding:32px}
+  body.tv .schact-name{font-size:30px}
+  body.tv .schact-sub{font-size:18px}
+  body.tv .btn.lg{padding:22px;font-size:23px}
   .scmeta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
   .sctitle{font-size:12px;color:var(--muted);margin:2px 0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .scbar{height:5px;background:var(--inset);border-radius:99px;overflow:hidden}
@@ -1081,8 +1090,8 @@ function renderSchedule(){
     else if(!tvMode && document.exitFullscreen && document.fullscreenElement) document.exitFullscreen().catch(()=>{});
     render();
   };
-  // open an order by tapping its card (not in TV mode)
-  if(!tvMode) appEl.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openJob(el.dataset.open));
+  // tap a card -> action popup (Start job / Open); works in normal AND TV view
+  appEl.querySelectorAll('.schcard[data-open]').forEach(el=>el.onclick=()=>openSchedAction(el.dataset.open));
   // drag to reschedule (desktop planning)
   if(!tvMode){
     appEl.querySelectorAll('[data-open]').forEach(c=>{
@@ -1098,6 +1107,30 @@ function renderSchedule(){
     });
   }
   lastSchedSig=schedSig();
+}
+// Tap a schedule card -> quick actions (Start job, Open). Built as an overlay so
+// it works the same on the shop TV as on a desktop.
+function openSchedAction(name){
+  const j=Store.get(name); if(!j) return;
+  document.querySelectorAll('.schact-overlay').forEach(x=>x.remove());
+  const wrap=document.createElement('div'); wrap.className='schact-overlay';
+  wrap.innerHTML=`<div class="schact">
+    <div class="schact-name">${esc(j.customer||j.title||j.name)}</div>
+    <div class="schact-sub">${esc(j.title||'')} ${statusPill(j.status)}</div>
+    <button class="btn primary lg" data-act="start">Start job — Work In Progress</button>
+    <button class="btn lg" data-act="open">Open job</button>
+    <button class="btn ghost lg" data-act="cancel">Cancel</button>
+  </div>`;
+  document.body.appendChild(wrap);
+  const close=()=>wrap.remove();
+  wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
+  wrap.querySelector('[data-act="cancel"]').onclick=close;
+  wrap.querySelector('[data-act="open"]').onclick=()=>{ close(); openJob(name); };
+  wrap.querySelector('[data-act="start"]').onclick=()=>{
+    const job2=Store.get(name);
+    if(job2){ job2.status='Work In Progress'; normalizeOrder(job2); Store.save(job2); }
+    close(); render();
+  };
 }
 function schedCard(j){
   const p=jobProgress(j);
