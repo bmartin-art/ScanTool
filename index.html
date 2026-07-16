@@ -445,7 +445,7 @@
   <span class="spacer"></span>
   <button id="themeBtn" class="btn ghost">Dark</button>
   <span id="jobtag" class="jobtag hidden">ORDER <b id="jobtagName">—</b></span>
-  <button id="homeBtn" class="btn ghost hidden">← Orders</button>
+  <button id="homeBtn" class="btn ghost hidden">← Back</button>
 </header>
 
 <main id="app"></main>
@@ -767,7 +767,18 @@ let pollTimer=null, polling=false, lastHomeSig='', lastReportSig='', showComplet
 const appEl=document.getElementById('app');
 const footerEl=document.getElementById('footer');
 
-function go(v){ view=v; render(); }
+let navStack=[];
+function navSnapshot(){ return {view, jobName: job?job.name:null, editOrderName}; }
+function go(v){ navStack.push(navSnapshot()); try{ history.pushState({n:navStack.length},''); }catch(e){} view=v; render(); }
+function goBack(){ if(navStack.length){ history.back(); } else { goHome(); } }   // one step back
+function goHome(){ navStack=[]; job=null; view='home'; render(); }                  // straight to the orders list
+// phone/browser back button -> go back one logical screen instead of leaving the app
+window.addEventListener('popstate', ()=>{
+  const prev=navStack.pop();
+  if(prev){ view=prev.view; editOrderName=prev.editOrderName||null; job=prev.jobName?Store.get(prev.jobName):null; }
+  else { view='home'; job=null; }
+  render();
+});
 async function openJob(name){ await Store.refresh(name); job=Store.get(name); mode='truck'; activePallet=null; go('scan'); }
 async function startOrder(name){
   await Store.refresh(name); job=Store.get(name);
@@ -790,7 +801,7 @@ function render(){
   else if(view==='delivery') renderDelivery();
   else if(view==='settings') renderSettings(!Cfg.ready());
 }
-document.getElementById('homeBtn').onclick=()=>{ job=null; go('home'); };
+document.getElementById('homeBtn').onclick=()=>goBack();
 
 /* ---------- ORDER ENTRY / EDIT ------------------------------------------- */
 function openOrderForm(name){ editOrderName=name||null; go('orderform'); }
@@ -1167,7 +1178,7 @@ function renderSchedule(){
   document.getElementById('wkPrev').onclick=()=>shift(-1);
   document.getElementById('wkNext').onclick=()=>shift(1);
   document.getElementById('wkThis').onclick=()=>{ weekStart=mondayOf(new Date()); render(); };
-  document.getElementById('schHome').onclick=()=>{ job=null; go('home'); };
+  document.getElementById('schHome').onclick=()=>{ goHome(); };
   document.getElementById('tvToggle').onclick=()=>{
     tvMode=!tvMode;
     if(tvMode && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
@@ -1275,7 +1286,7 @@ function renderDelivery(){
   document.getElementById('dwkPrev').onclick=()=>shift(-1);
   document.getElementById('dwkNext').onclick=()=>shift(1);
   document.getElementById('dwkThis').onclick=()=>{ weekStart=mondayOf(new Date()); render(); };
-  document.getElementById('dHome').onclick=()=>{ job=null; go('home'); };
+  document.getElementById('dHome').onclick=()=>{ goHome(); };
   appEl.querySelectorAll('.dtprint').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const j=Store.get(b.dataset.tick); if(j) printDeliveryTicket(deliveryDataFromRecord(j)); });
   appEl.querySelectorAll('.deliv-card[data-open]').forEach(el=>el.onclick=()=>openOrderForm(el.dataset.open));
   lastDelivSig=delivSig();
@@ -1304,10 +1315,10 @@ function renderSettings(first){
     if(!base||!token){ msg.textContent='Both fields are required.'; return; }
     Cfg.set({base,token}); msg.textContent='Connecting…';
     const ok=await Store.init();
-    if(ok){ job=null; go('home'); startPolling(); toast('Connected'); }
+    if(ok){ goHome(); startPolling(); toast('Connected'); }
     else{ msg.textContent='Could not reach the Worker. Check the URL and access code.'; }
   };
-  const back=document.getElementById('cfgBack'); if(back) back.onclick=()=>{ job=null; go('home'); };
+  const back=document.getElementById('cfgBack'); if(back) back.onclick=()=>{ goHome(); };
 }
 function renderHome(){
   const jobs=Store.list();
@@ -1423,7 +1434,7 @@ function renderIngest(){
   let job2;
   try{ job2=buildJobFromCSV(pendingCSV, pendingName||'Untitled job'); }
   catch(err){ appEl.innerHTML=`<h1>Import problem</h1><p class="sub">${esc(err.message)}</p>
-    <button class="btn" onclick="go('home')">Back</button>`; return; }
+    <button class="btn" onclick="goHome()">Back</button>`; return; }
   const s=job2._summary;
   const exists=!!Store.get(job2.name);
   appEl.innerHTML=`
@@ -1531,7 +1542,7 @@ function renderScan(){
       <button class="btn primary" id="printTag" ${activePallet?'':'disabled'}>Print pallet tag</button>`:''}
     <button class="btn ghost" id="toReport">Job status &amp; shortages</button>
     <button class="btn ghost" id="toDetails">Order details</button>`;
-  document.getElementById('toOrders').onclick=()=>{ job=null; go('home'); };
+  document.getElementById('toOrders').onclick=()=>{ goHome(); };
   document.getElementById('toDetails').onclick=()=>openOrderForm(job.name);
   const np=document.getElementById('newPallet'); if(np) np.onclick=()=>{newPallet();render();};
   const pt=document.getElementById('printTag'); if(pt) pt.onclick=()=>printTag(activePallet);
@@ -1804,7 +1815,7 @@ function renderReport(){
     <button class="btn" id="back">Back to scanning</button>
     <button class="btn ghost" id="exp">Export job file</button>`;
   document.getElementById('slip').onclick=()=>printSlip();
-  document.getElementById('back').onclick=()=>go('scan');
+  document.getElementById('back').onclick=()=>goBack();
   document.getElementById('exp').onclick=()=>exportJob(job.name);
   lastReportSig=jobSig(job);
 }
