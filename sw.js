@@ -276,8 +276,11 @@ function mergePreserveScans(existing, fresh) {
   for (const it of existing.items) byKey[it.key] = it;
   for (const it of fresh.items) {
     const old = byKey[it.key];
-    if (old && typeof old.onTruck === "number")
-      it.onTruck = Math.min(old.onTruck, it.qty); // carry scans forward, cap at new qty
+    if (old) {
+      const oldWh = (typeof old.wh === "number") ? old.wh : (typeof old.onTruck === "number" ? old.onTruck : 0);
+      it.wh = Math.min(oldWh, it.qty);                              // warehouse scans (carry, cap at new qty)
+      if (typeof old.truck === "number") it.truck = Math.min(old.truck, it.qty);   // truck load scans
+    }
   }
   fresh.pallets = existing.pallets || [];
   fresh.palletSeq = existing.palletSeq || 0;
@@ -385,12 +388,12 @@ function buildJobFromCSV(text, jobName) {
     const guid = (row[iGuid] || "").trim();
     const nums = itemNoRaw.split(",").map((s) => s.trim()).filter(Boolean);
     if (type === "stock" || keys.length <= 1) {
-      items.push({ key, guid, itemNo: itemNoRaw, group, desc: desc || "(no description)", qty, type, onTruck: 0, fabEach: feachPer });
+      items.push({ key, guid, itemNo: itemNoRaw, group, desc: desc || "(no description)", qty, type, wh: 0, truck: 0, fabEach: feachPer });
     } else {
       const per = Math.floor(qty / keys.length), extra = qty - per * keys.length;
       keys.forEach((k, idx) => {
         const q = per + (idx < extra ? 1 : 0); if (q <= 0) return;
-        items.push({ key: k, guid: "", itemNo: nums[idx] || (itemNoRaw + "." + (idx + 1)), group, desc: desc || "(no description)", qty: q, type, onTruck: 0, fabEach: feachPer });
+        items.push({ key: k, guid: "", itemNo: nums[idx] || (itemNoRaw + "." + (idx + 1)), group, desc: desc || "(no description)", qty: q, type, wh: 0, truck: 0, fabEach: feachPer });
       });
     }
   }
