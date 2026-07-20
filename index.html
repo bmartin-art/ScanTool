@@ -1174,14 +1174,14 @@ function renderSchedule(){
   const week2=weekDays(nextStart);
   const todayStr=ymd(new Date());
   const remToday=hoursRemaining(todayStr), schedToday=hoursScheduled(todayStr);
-  const unsched=Store.list().filter(j=>!j.scheduledDate && j.status!=='Complete');   // completed drop off the unscheduled list
+  const unsched=Store.list().filter(j=>!j.scheduledDate && j.status!=='Complete' && j.status!=='Received');   // not on the board until programmed; completed drop off
   const dayName=d=>d.toLocaleDateString('en-US',{weekday:'short'});
   const dayNum=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
   const dayCol=(d)=>{
     const ds=ymd(d), used=hoursScheduled(ds), rem=hoursRemaining(ds);
     // completed jobs sink to the bottom; otherwise keep existing order
-    const list=ordersOn(ds).slice().sort((a,b)=>(a.status==='Complete'?1:0)-(b.status==='Complete'?1:0));
+    const list=ordersOn(ds).filter(j=>j.status!=='Received').slice().sort((a,b)=>(a.status==='Complete'?1:0)-(b.status==='Complete'?1:0));
     const pct=Math.min(100, Math.round(used/DAILY_CAPACITY*100));
     const over=used>DAILY_CAPACITY;
     const isToday=ds===todayStr;
