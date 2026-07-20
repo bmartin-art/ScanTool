@@ -108,6 +108,11 @@
   /* ---- scan view ---- */
   .modebar{display:flex;gap:8px;background:var(--panel);border:1px solid var(--line);
     border-radius:10px;padding:6px;margin-bottom:16px}
+  .destbar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:16px}
+  .destnow{font-size:15px}
+  .destnow b{font-weight:800}
+  .destplus{font-size:14px;padding:8px 12px}
+  .destback{font-size:14px;padding:8px 12px;color:var(--amber);border-color:var(--amber)}
   .modebtn{flex:1;border:none;background:transparent;color:var(--muted);
     padding:12px;border-radius:7px;font-weight:700;font-size:15px;letter-spacing:.02em}
   .modebtn.active{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
@@ -198,8 +203,11 @@
   .tag h3{margin:0 0 4px;font-size:22px;letter-spacing:.04em}
   .tag .job{font-family:var(--mono);font-size:13px;color:#444;margin-bottom:14px}
   .tag #qrbox{display:flex;justify-content:center;margin:0 auto 12px}
-  .tag .manifest{text-align:left;font-size:12px;font-family:var(--mono);color:#222;
-    border-top:1px dashed #bbb;padding-top:10px;margin-top:6px}
+  .tag .manifest{text-align:left;font-size:13px;font-family:var(--mono);color:#111;
+    border-top:1px dashed #bbb;padding-top:10px;margin-top:10px}
+  .tag .manifest .mhdr{font-weight:800;font-size:12px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+  .tag .manifest .mrow{padding:2px 0;line-height:1.3}
+  .tag .manifest .mcode{margin-top:10px;font-size:10px;color:#777;word-break:break-all}
   .slip{background:#fff;color:#111;border-radius:8px;padding:34px 38px;width:640px;max-width:100%;font-family:var(--disp)}
   .slip .sh{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #163158;padding-bottom:14px;margin-bottom:16px}
   .slip .brand{display:flex;align-items:center;gap:14px}
@@ -670,13 +678,13 @@ function buildJobFromCSV(text, jobName){
     const nums=itemNoRaw.split(',').map(s=>s.trim()).filter(Boolean);
     if(type==='stock' || keys.length<=1){
       items.push({ key, guid, itemNo:itemNoRaw, group,
-        desc:desc||'(no description)', qty, type, onTruck:0, fabEach:feachPer });
+        desc:desc||'(no description)', qty, type, wh:0, truck:0, fabEach:feachPer });
     } else {
       const per=Math.floor(qty/keys.length), extra=qty-per*keys.length;
       keys.forEach((k,idx)=>{
         const q=per+(idx<extra?1:0); if(q<=0) return;
         items.push({ key:k, guid:'', itemNo: nums[idx]||(itemNoRaw+'.'+(idx+1)),
-          group, desc:desc||'(no description)', qty:q, type, onTruck:0, fabEach:feachPer });
+          group, desc:desc||'(no description)', qty:q, type, wh:0, truck:0, fabEach:feachPer });
       });
     }
   }
@@ -707,6 +715,11 @@ function normalizeOrder(j){
   if(j.cover===undefined || j.cover===null) j.cover={};
   if(!Array.isArray(j.items)) j.items=[];
   if(!Array.isArray(j.pallets)) j.pallets=[];
+  // warehouse = the required scan (drives completion); truck = optional 2nd step
+  for(const it of j.items){
+    if(it.wh===undefined) it.wh = (typeof it.onTruck==='number' ? it.onTruck : 0);  // old "onTruck" was the primary count
+    if(it.truck===undefined) it.truck = 0;
+  }
   return j;
 }
 
@@ -714,14 +727,17 @@ function normalizeOrder(j){
 function palletQtyForKey(job,key,onlyUnloaded){
   let n=0; for(const p of job.pallets){ if(onlyUnloaded && p.loaded) continue;
     n+=(p.contents[key]||0); } return n; }
-function accounted(job,it){ return it.onTruck + palletQtyForKey(job,it.key,false); }   // truck + any pallet
-function loadedQty(job,it){ // on a truck directly, or on a pallet that's been loaded
-  let n=it.onTruck; for(const p of job.pallets){ if(p.loaded) n+=(p.contents[it.key]||0); } return n; }
-function remaining(job,it){ return it.qty - accounted(job,it); }
+// WAREHOUSE = the required step (loose warehouse scans + anything on a pallet). Drives completion.
+function whQty(job,it){ return (it.wh||0) + palletQtyForKey(job,it.key,false); }
+// TRUCK = optional second step (loose truck scans + pallets loaded onto the truck).
+function truckQty(job,it){ let n=(it.truck||0); for(const p of job.pallets){ if(p.loaded) n+=(p.contents[it.key]||0); } return n; }
+function accounted(job,it){ return whQty(job,it); }          // for caps/remaining (can't warehouse more than qty)
+function loadedQty(job,it){ return whQty(job,it); }          // "done" basis = warehoused
+function remaining(job,it){ return it.qty - whQty(job,it); }
+function truckRemaining(job,it){ return it.qty - truckQty(job,it); }
 function itemStatus(job,it){
-  const load=loadedQty(job,it), acc=accounted(job,it);
-  if(load>=it.qty) return 'loaded';
-  if(acc>=it.qty || palletQtyForKey(job,it.key,true)>0) return 'pallet';
+  if(whQty(job,it)>=it.qty) return 'loaded';                 // fully made & in warehouse
+  if(palletQtyForKey(job,it.key,false)>0) return 'pallet';
   return 'fab';
 }
 function statusSlug(s){ return s==='Complete'?'complete':s==='Work In Progress'?'wip':s==='Programmed'?'programmed':'received'; }
@@ -766,7 +782,7 @@ function parseScan(raw){
 /* =========================================================================
    App state + routing
    ========================================================================= */
-let view='home', job=null, mode='truck', activePallet=null, editOrderName=null, weekStart=null, tvMode=false;
+let view='home', job=null, mode='warehouse', activePallet=null, editOrderName=null, weekStart=null, tvMode=false;
 let pollTimer=null, polling=false, lastHomeSig='', lastReportSig='', showCompleted=false, searchTerm='', lastSchedSig='', lastDelivSig='';
 const appEl=document.getElementById('app');
 const footerEl=document.getElementById('footer');
@@ -783,11 +799,11 @@ window.addEventListener('popstate', ()=>{
   else { view='home'; job=null; }
   render();
 });
-async function openJob(name){ await Store.refresh(name); job=Store.get(name); mode='truck'; activePallet=null; go('scan'); }
+async function openJob(name){ await Store.refresh(name); job=Store.get(name); mode='warehouse'; activePallet=null; go('scan'); }
 async function startOrder(name){
   await Store.refresh(name); job=Store.get(name);
   if(job && (job.status==='Received'||job.status==='Programmed'||!job.status)){ job.status='Work In Progress'; Store.save(job); }
-  mode='truck'; activePallet=null; searchTerm=''; go('scan');
+  mode='warehouse'; activePallet=null; searchTerm=''; go('scan');
 }
 
 function render(){
@@ -1492,14 +1508,16 @@ function renderScan(){
       <input id="jobLoc" class="locinput" value="${esc(job.location||'')}" placeholder="type the location, e.g. A  (Enter to save)" maxlength="40" autocomplete="off" spellcheck="false">
     </div>
     <div class="stat">
-      <div><div class="k" id="pctK">${p.pct}%</div><div class="l">Loaded</div></div>
+      <div><div class="k" id="pctK">${p.pct}%</div><div class="l">Warehoused</div></div>
       <div><div class="k mono">${p.load}/${p.total}</div><div class="l">Pieces</div></div>
       <div><div class="k mono">${job.pallets.filter(x=>!x.loaded).length}</div><div class="l">Open pallets</div></div>
     </div>
 
-    <div class="modebar">
-      <button class="modebtn truck ${mode==='truck'?'active':''}" data-mode="truck">▸ Scan onto truck</button>
-      <button class="modebtn pallet ${mode==='pallet'?'active':''}" data-mode="pallet">▸ Scan onto pallet</button>
+    <div class="destbar">
+      <div class="destnow">Scanning to <b>${mode==='pallet'?('Pallet '+(activePallet?activePallet.id:'—')):mode==='truck'?'Truck':'Warehouse'}</b></div>
+      ${mode==='warehouse'
+        ? `<button class="btn ghost destplus" id="destPlus">+ Pallet / Truck</button>`
+        : `<button class="btn destback" id="destBack">← Back to Warehouse</button>`}
     </div>
 
     <div id="palletStrip">${mode==='pallet'?palletStripHTML():''}</div>
@@ -1515,18 +1533,15 @@ function renderScan(){
     <div class="feedback" id="fb">
       <div class="fbtop">Last scan</div>
       <div class="fbmain">Scan a label to begin</div>
-      <div class="fbsub">${mode==='truck'?'Parts scanned here go straight onto the truck.':'Parts scanned here go onto the open pallet.'}</div>
+      <div class="fbsub">${mode==='truck'?'Optional: loading pieces onto the truck.':mode==='pallet'?'Parts scanned here go onto the open pallet (in the warehouse).':'Parts scanned here go into the warehouse.'}</div>
     </div>
 
     ${stock.length?`<h2>Stock items — enter counts (no label)</h2>
       <div class="tiles" id="tiles">${stock.map(stockTile).join('')}</div>`:''}
   `;
-  // mode buttons
-  appEl.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
-    mode=b.dataset.mode;
-    if(mode==='pallet' && !activePallet && job.pallets.filter(p=>!p.loaded).length===0){ newPallet(); }
-    render();
-  });
+  // destination: warehouse is default; pallet/truck are behind the + so they're not bumped
+  const plus=document.getElementById('destPlus'); if(plus) plus.onclick=()=>openDestMenu();
+  const dback=document.getElementById('destBack'); if(dback) dback.onclick=()=>{ mode='warehouse'; render(); };
   wireStockTiles();
   // scan input is read-only (no soft keyboard); scans are captured page-wide below
   const inp=document.getElementById('scan');
@@ -1571,17 +1586,17 @@ function palletStripHTML(){
 }
 
 function stockTile(it){
-  const onTruck=it.onTruck, onPallet=palletQtyForKey(job,it.key,false)- (job.pallets.filter(p=>p.loaded).reduce((s,p)=>s+(p.contents[it.key]||0),0));
-  const acc=accounted(job,it), rem=it.qty-acc;
-  const dest = mode==='pallet' ? 'pallet':'truck';
+  const wh=whQty(job,it), tr=truckQty(job,it);
+  const cur = mode==='pallet' ? (activePallet?(activePallet.contents[it.key]||0):0) : (mode==='truck'?(it.truck||0):(it.wh||0));
+  const destLabel = mode==='pallet'?'pallet':mode==='truck'?'truck':'warehouse';
   return `<div class="tile" data-stock="${esc(it.key)}">
     <div class="d">${esc(it.desc)}</div>
-    <div class="n">item ${esc(it.itemNo)} · ${acc}/${it.qty} accounted${rem<0?' · OVER':''}</div>
+    <div class="n">item ${esc(it.itemNo)} · ${wh}/${it.qty} in warehouse${mode==='truck'?(' · '+tr+'/'+it.qty+' on truck'):''}</div>
     <div class="counter">
       <button data-step="-1">−</button>
-      <span class="v">${dest==='truck'?it.onTruck:(activePallet?(activePallet.contents[it.key]||0):0)}</span>
+      <span class="v">${cur}</span>
       <button data-step="1">+</button>
-      <span class="of">of ${it.qty} · to ${dest}</span>
+      <span class="of">of ${it.qty} · to ${destLabel}</span>
     </div></div>`;
 }
 function wireStockTiles(){
@@ -1592,14 +1607,15 @@ function wireStockTiles(){
       const it=job.items.find(i=>i.key===key);
       if(mode==='pallet'){
         if(!activePallet){ toast('Open a pallet first'); return; }
-        const cur=activePallet.contents[key]||0;
-        const next=Math.max(0,cur+step);
-        // cap so total accounted never exceeds qty
-        if(step>0 && accounted(job,it)>=it.qty){ toast('Already fully accounted'); return; }
+        if(step>0 && whQty(job,it)>=it.qty){ toast('Already fully in warehouse'); return; }
+        const cur=activePallet.contents[key]||0, next=Math.max(0,cur+step);
         activePallet.contents[key]=next; if(next===0) delete activePallet.contents[key];
+      } else if(mode==='truck'){
+        if(step>0 && truckQty(job,it)>=it.qty){ toast('Already fully on truck'); return; }
+        it.truck=Math.max(0,(it.truck||0)+step);
       } else {
-        if(step>0 && accounted(job,it)>=it.qty){ toast('Already fully accounted'); return; }
-        it.onTruck=Math.max(0,it.onTruck+step);
+        if(step>0 && whQty(job,it)>=it.qty){ toast('Already fully in warehouse'); return; }
+        it.wh=Math.max(0,(it.wh||0)+step);
       }
       bumpStatus(job); Store.save(job); render();
     });
@@ -1648,15 +1664,17 @@ function toggleManual(){
   document.getElementById('mAdd').onclick=()=>{
     const it=look(); if(!it){ item.focus(); return; }
     let n=parseInt(qty.value.trim(),10); if(!n||n<1) n=1;
-    const rem=remaining(job,it);
-    if(rem<=0){ feedback('warn','Already accounted',it.desc,'item '+it.itemNo+' · '+it.qty+' of '+it.qty); return; }
+    const rem = mode==='truck' ? truckRemaining(job,it) : remaining(job,it);
+    if(rem<=0){ feedback('warn', mode==='truck'?'Already on truck':'Already in warehouse',it.desc,'item '+it.itemNo+' · '+it.qty+' of '+it.qty); return; }
     if(n>rem){ n=rem; toast('Capped at '+rem+' remaining'); }
-    if(mode==='pallet'){ if(!activePallet) newPallet();
+    if(mode==='truck'){ it.truck=(it.truck||0)+n; }
+    else if(mode==='pallet'){ if(!activePallet) newPallet();
       activePallet.contents[it.key]=(activePallet.contents[it.key]||0)+n; }
-    else { it.onTruck+=n; }
+    else { it.wh=(it.wh||0)+n; }
     bumpStatus(job); Store.save(job);
-    feedback('good', it.desc, '', accounted(job,it)+' of '+it.qty,
-      'item '+it.itemNo+' · +'+n+' by hand'+(mode==='pallet'?' → '+activePallet.id:' → truck'));
+    const acc = mode==='truck' ? truckQty(job,it) : whQty(job,it);
+    const dest = mode==='pallet'?(' → '+activePallet.id):(mode==='truck'?' → truck':' → warehouse');
+    feedback('good', it.desc, '', acc+' of '+it.qty, 'item '+it.itemNo+' · +'+n+' by hand'+dest);
     item.value=''; qty.value='1'; info.className='maninfo'; info.textContent='Added. Next item # if needed.';
     const pk=document.getElementById('pctK'); const pr=jobProgress(job); if(pk)pk.textContent=pr.pct+'%';
     if(mode==='pallet'){ const ps=document.getElementById('palletStrip'); if(ps) ps.innerHTML=palletStripHTML();
@@ -1666,9 +1684,17 @@ function toggleManual(){
   qty.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('mAdd').click(); });
 }
 
+let lastScanToken='', lastScanAt=0;
+const DUP_MS=1000;   // same code within this window = accidental double-read, not counted
 function handleScan(raw){
   if(!raw.trim()) return;
   const {token}=parseScan(raw);
+  const now=Date.now();
+  if(token===lastScanToken && now-lastScanAt < DUP_MS){
+    lastScanAt=now;   // keep the window open if the trigger is held / swept
+    return feedback('warn','Same label — not counted','','just scanned','Scan the next piece. To re-scan the same one, wait a second.');
+  }
+  lastScanToken=token; lastScanAt=now;
   // pallet tag?
   if(/^P:/.test(token)){ return scanPalletTag(token.slice(2)); }
   // Every fabricated item carries a globally-unique code, so a label from another
@@ -1676,33 +1702,55 @@ function handleScan(raw){
   const it=job.items.find(i=>i.key===token);
   if(!it){ return feedback('bad','Not this order',token,'That label isn’t part of this order'); }
   if(it.type==='stock'){ return feedback('warn','Stock item — use the count tiles',it.desc,'item '+it.itemNo); }
-  if(accounted(job,it)>=it.qty){
-    return feedback('warn','Already accounted',it.desc,'item '+it.itemNo+' · '+it.qty+' of '+it.qty);
-  }
-  // record the scan
-  if(mode==='pallet'){
+  // record the scan by destination
+  if(mode==='truck'){
+    if(truckQty(job,it)>=it.qty){ return feedback('warn','Already on truck',it.desc,'item '+it.itemNo+' · '+it.qty+' of '+it.qty); }
+    it.truck=(it.truck||0)+1;
+  } else if(mode==='pallet'){
+    if(whQty(job,it)>=it.qty){ return feedback('warn','Already in warehouse',it.desc,'item '+it.itemNo+' · '+it.qty+' of '+it.qty); }
     if(!activePallet){ newPallet(); }
     activePallet.contents[it.key]=(activePallet.contents[it.key]||0)+1;
-  } else {
-    it.onTruck++;
+  } else { // warehouse (default)
+    if(whQty(job,it)>=it.qty){ return feedback('warn','Already in warehouse',it.desc,'item '+it.itemNo+' · '+it.qty+' of '+it.qty); }
+    it.wh=(it.wh||0)+1;
   }
   bumpStatus(job); Store.save(job);
-  const acc=accounted(job,it);
-  feedback('good', it.desc, '', `${acc} of ${it.qty}`, 'item '+it.itemNo+(mode==='pallet'?' → '+activePallet.id:' → truck'));
+  const acc = mode==='truck' ? truckQty(job,it) : whQty(job,it);
+  const dest = mode==='pallet' ? (' → '+activePallet.id) : (mode==='truck' ? ' → truck' : ' → warehouse');
+  feedback('good', it.desc, '', `${acc} of ${it.qty}`, 'item '+it.itemNo+dest);
   // refresh counts without stealing focus
   const p=jobProgress(job); const pk=document.getElementById('pctK'); if(pk) pk.textContent=p.pct+'%';
   if(mode==='pallet'){ const ps=document.getElementById('palletStrip'); if(ps) ps.innerHTML=palletStripHTML();
     appEl.querySelectorAll('[data-activate]').forEach(b=>b.onclick=()=>{activePallet=job.pallets.find(p=>p.id===b.dataset.activate);render();}); }
 }
 
+// destination chooser (kept behind a + so pallet/truck aren't bumped)
+function openDestMenu(){
+  document.querySelectorAll('.schact-overlay').forEach(x=>x.remove());
+  const wrap=document.createElement('div'); wrap.className='schact-overlay';
+  wrap.innerHTML=`<div class="schact">
+    <div class="schact-name">Scan destination</div>
+    <div class="schact-sub">Warehouse is the normal destination.</div>
+    <button class="btn primary lg" data-d="pallet">Scan to pallet</button>
+    <button class="btn lg" data-d="truck">Scan to truck (optional load-out)</button>
+    <button class="btn ghost lg" data-d="cancel">Cancel</button>
+  </div>`;
+  document.body.appendChild(wrap);
+  const close=()=>wrap.remove();
+  wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
+  wrap.querySelector('[data-d="cancel"]').onclick=close;
+  wrap.querySelector('[data-d="pallet"]').onclick=()=>{ close(); mode='pallet'; if(!activePallet && job.pallets.filter(p=>!p.loaded).length===0) newPallet(); render(); };
+  wrap.querySelector('[data-d="truck"]').onclick=()=>{ close(); mode='truck'; render(); };
+}
+
 function scanPalletTag(id){
   const p=job.pallets.find(x=>x.id===id);
   if(!p){ return feedback('bad','Unknown pallet tag',id,'Not found in this job'); }
-  if(mode!=='truck'){ return feedback('warn','Switch to truck mode','to load a pallet',id); }
+  if(mode!=='truck'){ return feedback('warn','Switch to Truck to load a pallet','use + → Scan to truck',id); }
   if(p.loaded){ return feedback('warn','Pallet already loaded',id,''); }
   p.loaded=true; bumpStatus(job); Store.save(job);
   const n=Object.values(p.contents).reduce((a,b)=>a+b,0);
-  feedback('good','Pallet loaded',id,'',n+' item(s) onto truck');
+  feedback('good','Pallet loaded onto truck',id,'',n+' item(s)');
   const pk=document.getElementById('pctK'); const pr=jobProgress(job); if(pk)pk.textContent=pr.pct+'%';
 }
 
@@ -1732,10 +1780,13 @@ function printTag(p){
   document.getElementById('tagJob').textContent=job.name;
   const box=document.getElementById('qrbox'); box.innerHTML='';
   new QRCode(box,{text:code,width:200,height:200,correctLevel:QRCode.CorrectLevel.M});
-  const lines=Object.entries(p.contents).map(([k,q])=>{
-    const it=job.items.find(i=>i.key===k); return `${q}× ${it?it.desc:k} (item ${it?it.itemNo:'?'})`; });
+  const lines=Object.entries(p.contents).filter(([k,q])=>q>0).map(([k,q])=>{
+    const it=job.items.find(i=>i.key===k); return {q, no: it?it.itemNo:'?', desc: it?it.desc:k}; });
+  const total=lines.reduce((s,l)=>s+l.q,0);
   document.getElementById('tagManifest').innerHTML=
-    (lines.length?lines.map(esc).join('<br>'):'(empty)')+`<br><br>${esc(code)}`;
+    `<div class="mhdr">Contents — ${total} piece${total===1?'':'s'}</div>`+
+    (lines.length ? lines.map(l=>`<div class="mrow"><b>${l.q}×</b> #${esc(String(l.no))} — ${esc(l.desc)}</div>`).join('') : '<div>(empty)</div>')+
+    `<div class="mcode">${esc(code)}</div>`;
   document.getElementById('tagModal').classList.remove('hidden');
 }
 function closeTag(){ document.getElementById('tagModal').classList.add('hidden'); refocus(); }
