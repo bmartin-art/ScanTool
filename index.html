@@ -502,6 +502,8 @@ function applyTheme(t){
   const tb=document.getElementById('themeBtn');
   if(tb) tb.onclick=()=>{ const n=document.body.classList.contains('dark')?'light':'dark'; localStorage.setItem('dt_theme',n); applyTheme(n); };
 }
+// lock to portrait where the platform allows it (installed app / fullscreen)
+try{ if(screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(()=>{}); }catch(e){}
 
 /* ---------- Connection config (Worker URL + shared access code) ----------
    Hardcoded defaults below so no one has to enter them. To rotate the code,
@@ -1503,7 +1505,7 @@ function renderScan(){
     <div id="palletStrip">${mode==='pallet'?palletStripHTML():''}</div>
 
     <div class="scanwrap">
-      <input class="scaninput" id="scan" placeholder="Scan a part or pallet tag…" autocomplete="off" spellcheck="false" inputmode="none">
+      <input class="scaninput" id="scan" placeholder="Scan a part or pallet tag…" autocomplete="off" spellcheck="false" inputmode="none" readonly>
       <span class="focushint on" id="focushint">Ready</span>
     </div>
     <div class="row" style="margin-top:10px">
@@ -1526,9 +1528,8 @@ function renderScan(){
     render();
   });
   wireStockTiles();
-  // scan input
+  // scan input is read-only (no soft keyboard); scans are captured page-wide below
   const inp=document.getElementById('scan');
-  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const v=inp.value; inp.value=''; handleScan(v); }});
   keepFocus(inp);
   document.getElementById('manualBtn').onclick=()=>toggleManual();
   const loc=document.getElementById('jobLoc');
@@ -1848,15 +1849,36 @@ function keepFocus(inp){
     if(!e.target.closest('button') && !e.target.closest('input') && document.getElementById('tagModal').classList.contains('hidden')) inp.focus(); });
 }
 function refocus(){ const i=document.getElementById('scan'); if(i) i.focus(); }
+
+// Page-wide scan capture: the Bluetooth scanner "types" its code + Enter. We read
+// it here so no editable field needs focus (which is what popped the soft keyboard).
+let scanBuf='', scanBufT=0;
+document.addEventListener('keydown', e=>{
+  if(view!=='scan' || manualOpen) return;
+  const ae=document.activeElement;
+  if(ae && ae.id!=='scan' && ['INPUT','TEXTAREA','SELECT'].includes(ae.tagName)) return; // let location/manual fields type
+  if(e.key==='Enter'){ if(scanBuf){ e.preventDefault(); const v=scanBuf; scanBuf=''; const s=document.getElementById('scan'); if(s) s.value=''; handleScan(v); } return; }
+  if(e.key && e.key.length===1){
+    const now=Date.now(); if(now-scanBufT>600) scanBuf='';   // long gap = fresh scan
+    scanBufT=now; scanBuf+=e.key;
+    const s=document.getElementById('scan'); if(s) s.value=scanBuf;
+  }
+});
+
 let actx=null;
 function beep(kind){
   try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended') actx.resume();
     const o=actx.createOscillator(), g=actx.createGain(); o.connect(g); g.connect(actx.destination);
+    o.type='square';                                   // square = louder, sharper (scanner-style)
     const now=actx.currentTime;
-    if(kind==='good'){ o.frequency.value=880; g.gain.setValueAtTime(.15,now); o.start(now); o.stop(now+.09); }
-    else if(kind==='warn'){ o.frequency.value=520; g.gain.setValueAtTime(.15,now); o.start(now); o.stop(now+.16); }
-    else { o.frequency.value=200; g.gain.setValueAtTime(.2,now); o.start(now); o.stop(now+.28); }
-    g.gain.exponentialRampToValueAtTime(.0001, now+.3);
+    let f=1000, vol=0.9, dur=0.12;
+    if(kind==='warn'){ f=560; vol=0.95; dur=0.18; }
+    else if(kind!=='good'){ f=200; vol=1.0; dur=0.34; }   // 'bad'
+    o.frequency.value=f;
+    g.gain.setValueAtTime(vol, now);
+    o.start(now); o.stop(now+dur);
+    g.gain.exponentialRampToValueAtTime(.0001, now+dur+.03);
   }catch(e){}
 }
 let toastTimer=null;
