@@ -510,8 +510,13 @@ function applyTheme(t){
   const tb=document.getElementById('themeBtn');
   if(tb) tb.onclick=()=>{ const n=document.body.classList.contains('dark')?'light':'dark'; localStorage.setItem('dt_theme',n); applyTheme(n); };
 }
-// lock to portrait where the platform allows it (installed app / fullscreen)
-try{ if(screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(()=>{}); }catch(e){}
+// lock to portrait where the platform allows it (installed app / fullscreen), and
+// re-assert it — opening the soft keyboard (e.g. manual entry) can release the lock.
+function lockPortrait(){ try{ const o=screen.orientation; if(o&&o.lock) o.lock('portrait').catch(()=>{}); }catch(e){} }
+lockPortrait();
+window.addEventListener('orientationchange', ()=>setTimeout(lockPortrait,50));
+document.addEventListener('focusout', ()=>setTimeout(lockPortrait,60));   // after a field/keyboard closes
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) lockPortrait(); });
 
 /* ---------- Connection config (Worker URL + shared access code) ----------
    Hardcoded defaults below so no one has to enter them. To rotate the code,
@@ -622,6 +627,26 @@ const CMAP={}, JMAP={};
 const CS_DEFAULTS={ std:'SMACNA 2005', mat:'G90 GALVANIZED', rpc:'2"', rnp:'POSITIVE', rec:"STANDING 'S' & DRIVE", c_persmacna:true };
 BASE_CUSTOMERS.forEach(([n,id])=>{ CMAP[n.trim().toUpperCase()]=id; });
 BASE_JOBS.forEach(([n,po])=>{ JMAP[n.trim().toUpperCase()]=po; });
+
+// Saved additions to the autofill lists (customer->acct#, ship-to/job->PO#).
+// Learned automatically from cover sheets so new names/POs come back next time.
+const CustomLists={
+  key:'dt_lists', data:{customers:{}, jobs:{}},
+  load(){
+    try{ const d=JSON.parse(localStorage.getItem(this.key)||'{}'); this.data={customers:d.customers||{}, jobs:d.jobs||{}}; }
+    catch(e){ this.data={customers:{}, jobs:{}}; }
+    for(const v of Object.values(this.data.customers)) if(v.name) CMAP[v.name.toUpperCase()]=v.acct||'';
+    for(const v of Object.values(this.data.jobs)) if(v.name) JMAP[v.name.toUpperCase()]=v.po||'';
+  },
+  _save(){ try{ localStorage.setItem(this.key, JSON.stringify(this.data)); }catch(e){} },
+  addCustomer(name,acct){ name=(name||'').trim(); if(!name) return false; const u=name.toUpperCase();
+    const isNew=(CMAP[u]===undefined); this.data.customers[u]={name,acct:(acct||'').trim()}; CMAP[u]=(acct||'').trim(); this._save(); return isNew; },
+  addJob(name,po){ name=(name||'').trim(); if(!name) return false; const u=name.toUpperCase();
+    const isNew=(JMAP[u]===undefined); this.data.jobs[u]={name,po:(po||'').trim()}; JMAP[u]=(po||'').trim(); this._save(); return isNew; },
+  custList(){ const m=new Map(); for(const [n,a] of BASE_CUSTOMERS) m.set(n.toUpperCase(),[n,a]); for(const v of Object.values(this.data.customers)) m.set(v.name.toUpperCase(),[v.name,v.acct]); return [...m.values()]; },
+  jobList(){ const m=new Map(); for(const [n,p] of BASE_JOBS) m.set(n.toUpperCase(),[n,p]); for(const v of Object.values(this.data.jobs)) m.set(v.name.toUpperCase(),[v.name,v.po]); return [...m.values()]; },
+};
+CustomLists.load();
 function col(headers,names){
   for(const n of names){ const idx=headers.findIndex(h=>h.trim().toLowerCase()===n); if(idx>=0) return idx; }
   return -1;
@@ -861,8 +886,8 @@ function renderOrderForm(){
   const on=(id)=> c[id]?'checked':'';
   const opt=(id,val,label)=>`<option ${((c[id]||'')===val)?'selected':''}>${label!=null?label:val}</option>`;
   const opts=(id,arr)=>arr.map(x=>opt(id,x)).join('');
-  const dlCust=BASE_CUSTOMERS.map(([n])=>`<option value="${esc(n)}">`).join('');
-  const dlJob =BASE_JOBS.map(([n])=>`<option value="${esc(n)}">`).join('');
+  const dlCust=CustomLists.custList().map(([n])=>`<option value="${esc(n)}">`).join('');
+  const dlJob =CustomLists.jobList().map(([n])=>`<option value="${esc(n)}">`).join('');
   const dlShip=['SHIP','P/U'].map(n=>`<option value="${n}">`).join('');
 
   appEl.innerHTML=`<div class="cs">
@@ -873,7 +898,7 @@ function renderOrderForm(){
     <div class="matchbar">Match code <b>+${esc(matchCode)}</b><span>Programmer: add <b>+${esc(matchCode)}</b> to the end of the CAMduct file name when saving, and this sheet links to it automatically.</span><input type="hidden" id="cs_matchcode" value="${esc(matchCode)}"></div>
     <div class="hdr">
       <div class="f wide"><label>Customer</label><input id="cs_customer" list="cs_custList" autocomplete="off" value="${v('customer')}" placeholder="Type to search…"><datalist id="cs_custList">${dlCust}</datalist></div>
-      <div class="f"><label>Cust Acct #</label><input id="cs_acct" readonly value="${v('acct')}" placeholder="—"></div>
+      <div class="f"><label>Cust Acct #</label><input id="cs_acct" value="${v('acct')}" placeholder="—"></div>
       <div class="f"><label>Customer P.O. #</label><input id="cs_po" value="${v('po')}"></div>
       <div class="f wide"><label>Ship To / Job</label><input id="cs_job" list="cs_jobList" autocomplete="off" value="${v('job')}" placeholder="Pick from list or type…"><datalist id="cs_jobList">${dlJob}</datalist></div>
       <div class="f"><label>Project Buyer</label><input id="cs_buyer" value="${v('buyer')}"></div>
@@ -1060,6 +1085,11 @@ function saveCoverSheet(existing, isNew){
   const cov={};
   for(const f of CS_FIELDS){ const el=document.getElementById('cs_'+f); if(!el) continue; cov[f]=el.type==='checkbox'?el.checked:el.value.trim(); }
   const mc=document.getElementById('cs_matchcode'); cov.matchCode = (mc&&mc.value) || (existing&&existing.cover&&existing.cover.matchCode) || '';
+  // remember new list entries for next time (customer->acct, ship-to/job->PO)
+  let learned=0;
+  if(cov.customer){ if(CustomLists.addCustomer(cov.customer, cov.acct)) learned++; }
+  if(cov.job){ if(CustomLists.addJob(cov.job, cov.po)) learned++; }
+  if(learned) toast('Saved to lists for next time');
   const ordernum=(cov.ordernum||'').trim();
   const sched=(document.getElementById('cs_sched').value||'');
   const priority=(document.getElementById('cs_pri').value==='Yes');
