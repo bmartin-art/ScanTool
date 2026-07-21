@@ -282,6 +282,15 @@
   .scright{display:flex;align-items:center;gap:6px;flex:none}
   .scloc{font-family:var(--mono);font-weight:800;font-size:12px;line-height:1;color:var(--panel);background:var(--ink);border-radius:5px;padding:3px 6px;letter-spacing:.03em}
   .scpri{color:var(--bad);font-weight:800}
+  .schbadge{font-size:11px;font-weight:700;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:3px 7px;white-space:nowrap}
+  .scsplit{font-size:10px;font-weight:800;letter-spacing:.04em;background:var(--info);color:#fff;border-radius:5px;padding:2px 5px}
+  .schcard.split{border-style:dashed}
+  .schsplit{border-top:1px solid var(--line);padding-top:12px;margin-top:4px;width:100%}
+  .schsplit .ssl{font-size:13px;color:var(--muted);margin-bottom:8px}
+  .schsplit .ssrow{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .schsplit .ssrow span{color:var(--muted);font-size:14px}
+  .schsplit .ssrow input{text-align:center;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--inset);color:var(--ink)}
+  .schsplit .ssrow input[type=number]{width:80px}
   .scaddr{font-size:12px;color:var(--muted);margin-top:2px}
   .deliv-card .dtag{font-family:var(--mono);font-weight:800;font-size:11px;padding:2px 6px;border-radius:5px;background:var(--info);color:#fff}
   .deliv-card.third .dtag{background:var(--amber);color:#1a1400}
@@ -775,8 +784,26 @@ function mondayOf(d){ const x=new Date(d); const off=(x.getDay()+6)%7; x.setDate
 function weekDays(start){ const out=[]; for(let i=0;i<5;i++){ const d=new Date(start); d.setDate(start.getDate()+i); out.push(d); } return out; }
 function loadedFrac(j){ const p=jobProgress(j); return p.total>0 ? p.load/p.total : (j.status==='Complete'?1:0); }
 function orderHours(j){ return (typeof j.laborHours==='number') ? j.laborHours : 0; }
-function ordersOn(dateStr){ return Store.list().filter(j=>j.scheduledDate===dateStr); }
-function hoursScheduled(dateStr){ return ordersOn(dateStr).reduce((s,j)=>s+orderHours(j),0); }
+// A job can be visually split across days (j.splits = {date:hours}); it's still ONE order.
+function hoursOnDay(j,ds){ if(j.splits && j.splits[ds]!=null) return j.splits[ds]; return (j.scheduledDate===ds)?orderHours(j):0; }
+function schedAlloc(j){ if(j.splits){ const es=Object.entries(j.splits).filter(([d,h])=>h>0).sort((a,b)=>a[0]<b[0]?-1:1); if(es.length) return es.map(([date,hours])=>({date,hours})); } return j.scheduledDate?[{date:j.scheduledDate,hours:orderHours(j)}]:[]; }
+function ordersOn(dateStr){ return Store.list().filter(j=> j.splits ? (j.splits[dateStr]>0) : (j.scheduledDate===dateStr)); }
+function hoursScheduled(dateStr){ return ordersOn(dateStr).reduce((s,j)=>s+hoursOnDay(j,dateStr),0); }
+function nextWeekday(ds){ const [y,m,d]=ds.split('-').map(Number); const dt=new Date(y,m-1,d); do{ dt.setDate(dt.getDate()+1); }while(dt.getDay()===0||dt.getDay()===6); return ymd(dt); }
+function splitOrder(name, fromDay, n, toDay){
+  const j=Store.get(name); if(!j) return;
+  const tot=orderHours(j); if(tot<=0){ toast('No hours to split'); return; }
+  const nd = toDay || nextWeekday(fromDay);
+  if(nd===fromDay){ toast('Pick a different day'); return; }
+  if(!j.splits){ j.splits={}; for(const a of schedAlloc(j)) j.splits[a.date]=a.hours; }
+  if(!(j.splits[fromDay]>0)) j.splits[fromDay]=hoursOnDay(j,fromDay);
+  n=Math.min(Math.max(1,Math.round(n)), j.splits[fromDay]);
+  if(n>=j.splits[fromDay]){ toast('Leave some hours on the first day'); return; }
+  j.splits[fromDay]-=n; if(j.splits[fromDay]<=0) delete j.splits[fromDay];
+  j.splits[nd]=(j.splits[nd]||0)+n;
+  const dates=Object.keys(j.splits).sort(); j.scheduledDate=dates[0]||j.scheduledDate;
+  Store.save(j); render();
+}
 function hoursRemaining(dateStr){ return ordersOn(dateStr).reduce((s,j)=>s+orderHours(j)*(1-loadedFrac(j)),0); }
 function fmtHr(h){ return (Math.round(h*10)/10).toString(); }
 
@@ -1192,7 +1219,7 @@ function renderSchedule(){
       </div>
       <div class="capbar"><i style="width:${pct}%;background:${over?'var(--bad)':'var(--amber)'}"></i></div>
       <div class="daybody" data-drop="${ds}">
-        ${list.map(schedCard).join('') || '<div class="dayempty">—</div>'}
+        ${list.map(j=>schedCard(j,ds)).join('') || '<div class="dayempty">—</div>'}
       </div></div>`;
   };
 
@@ -1235,9 +1262,9 @@ function renderSchedule(){
     else if(!tvMode && document.exitFullscreen && document.fullscreenElement) document.exitFullscreen().catch(()=>{});
     render();
   };
-  // tap a card -> action popup (Start job / Open); works in normal AND TV view
-  appEl.querySelectorAll('.schcard[data-open]').forEach(el=>el.onclick=()=>openSchedAction(el.dataset.open));
-  // drag to reschedule (desktop planning)
+  // tap a card -> action popup (Start / Open / Split); works in normal AND TV view
+  appEl.querySelectorAll('.schcard[data-open]').forEach(el=>el.onclick=()=>openSchedAction(el.dataset.open, el.dataset.sday||''));
+  // drag to reschedule (desktop planning) — moving a card un-splits it to that day
   if(!tvMode){
     appEl.querySelectorAll('[data-open]').forEach(c=>{
       c.setAttribute('draggable','true');
@@ -1248,15 +1275,17 @@ function renderSchedule(){
       z.addEventListener('dragleave',()=>z.classList.remove('draghot'));
       z.addEventListener('drop',e=>{ e.preventDefault(); z.classList.remove('draghot');
         const name=e.dataTransfer.getData('text/order'); const j=Store.get(name);
-        if(j){ j.scheduledDate=z.dataset.drop; Store.save(j); render(); } });
+        if(j){ j.scheduledDate=z.dataset.drop; j.splits=null; Store.save(j); render(); } });
     });
   }
   lastSchedSig=schedSig();
 }
 // Tap a schedule card -> quick actions (Start job, Open). Built as an overlay so
 // it works the same on the shop TV as on a desktop.
-function openSchedAction(name){
+function openSchedAction(name, sday){
   const j=Store.get(name); if(!j) return;
+  const dayHrs = sday ? hoursOnDay(j,sday) : orderHours(j);
+  const canSplit = sday && dayHrs>1;
   document.querySelectorAll('.schact-overlay').forEach(x=>x.remove());
   const wrap=document.createElement('div'); wrap.className='schact-overlay';
   wrap.innerHTML=`<div class="schact">
@@ -1264,6 +1293,12 @@ function openSchedAction(name){
     <div class="schact-sub">${esc(j.title||'')} ${statusPill(j.status)}</div>
     <button class="btn primary lg" data-act="start">Start job — Work In Progress</button>
     <button class="btn lg" data-act="open">Open job</button>
+    ${canSplit?`<div class="schsplit">
+      <div class="ssl">Split job — ${fmtHr(dayHrs)} hr on this day</div>
+      <div class="ssrow"><input type="number" id="splitHrs" min="1" max="${Math.floor(dayHrs)}" value="${Math.max(1,Math.round(dayHrs/2))}"><span>hrs to</span><input type="date" id="splitDay" value="${nextWeekday(sday)}"></div>
+      <button class="btn lg" data-act="split">Split &amp; place</button>
+    </div>`:''}
+    ${j.splits?`<button class="btn ghost lg" data-act="unsplit">Un-split (one day)</button>`:''}
     <button class="btn ghost lg" data-act="cancel">Cancel</button>
   </div>`;
   document.body.appendChild(wrap);
@@ -1276,19 +1311,26 @@ function openSchedAction(name){
     if(job2){ job2.status='Work In Progress'; normalizeOrder(job2); Store.save(job2); }
     close(); render();
   };
+  const sp=wrap.querySelector('[data-act="split"]');
+  if(sp) sp.onclick=()=>{ const n=parseFloat(wrap.querySelector('#splitHrs').value)||0; const toDay=wrap.querySelector('#splitDay').value; close(); splitOrder(name, sday, n, toDay); };
+  const us=wrap.querySelector('[data-act="unsplit"]');
+  if(us) us.onclick=()=>{ const job2=Store.get(name); if(job2){ job2.splits=null; Store.save(job2); } close(); render(); };
 }
-function schedCard(j){
+function schedCard(j, ds){
   const p=jobProgress(j);
   const color = j.status==='Complete' ? 'var(--good)' : (p.pct>0?'var(--amber)':'var(--line)');
   const loc=(j.location||'').trim();
-  return `<div class="schcard st-${statusSlug(j.status)}${j.priority?' pri':''}" data-open="${esc(j.name)}">
-    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span><span class="scright">${j.priority?'<span class="scpri">!</span>':''}${loc?'<span class="scloc">'+esc(loc)+'</span>':''}</span></div>
-    <div class="scmeta">${/^TMP-/.test(j.name)?'(no order # yet)':('#'+esc(j.orderNo||j.name))}${orderHours(j)?(' · '+fmtHr(orderHours(j))+' hr'):''}</div>
+  const parts=schedAlloc(j).length;
+  const hrs = ds ? hoursOnDay(j,ds) : orderHours(j);
+  const split = parts>1;
+  return `<div class="schcard st-${statusSlug(j.status)}${j.priority?' pri':''}${split?' split':''}" data-open="${esc(j.name)}" data-sday="${esc(ds||'')}">
+    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span><span class="scright">${split?'<span class="scsplit">SPLIT</span>':''}${j.priority?'<span class="scpri">!</span>':''}${loc?'<span class="scloc">'+esc(loc)+'</span>':''}</span></div>
+    <div class="scmeta">${/^TMP-/.test(j.name)?'(no order # yet)':('#'+esc(j.orderNo||j.name))}${hrs?(' · '+fmtHr(hrs)+' hr'+(split?' of '+fmtHr(orderHours(j)):'')):''}</div>
     <div class="sctitle">${esc(j.title||'')}</div>
     <div class="scbar"><i style="width:${p.pct}%;background:${color}"></i></div>
   </div>`;
 }
-function schedSig(){ return Store.list().map(j=>j.name+':'+j.scheduledDate+':'+jobProgress(j).load+'/'+jobProgress(j).total+':'+j.status+':'+(j.laborHours||0)+':'+(j.location||'')).join('|'); }
+function schedSig(){ return Store.list().map(j=>j.name+':'+j.scheduledDate+':'+jobProgress(j).load+'/'+jobProgress(j).total+':'+j.status+':'+(j.laborHours||0)+':'+(j.location||'')+':'+(j.splits?JSON.stringify(j.splits):'')).join('|'); }
 
 /* ---------- DELIVERY SCHEDULE ------------------------------------------- */
 function openDelivery(){ if(!weekStart) weekStart=mondayOf(new Date()); go('delivery'); }
@@ -1372,7 +1414,8 @@ function renderSettings(first){
 }
 function renderHome(){
   const jobs=Store.list();
-  const active=jobs.filter(j=>!isDone(j)), done=jobs.filter(j=>isDone(j));
+  const bySched=(a,b)=>{ const x=a.scheduledDate||'9999-99-99', y=b.scheduledDate||'9999-99-99'; return x<y?-1:x>y?1:0; };
+  const active=jobs.filter(j=>!isDone(j)).sort(bySched), done=jobs.filter(j=>isDone(j));
   appEl.innerHTML=`
     <h1>Jobs</h1>
     <p class="sub">Load a CAMduct export to start tracking a job, or open one already on this computer.</p>
@@ -1436,14 +1479,16 @@ function filterCards(){
   const doneCards=document.getElementById('doneCards');
   if(doneCards) doneCards.classList.toggle('hidden', term!=='' ? false : !showCompleted);
 }
+function fmtSched(ds){ if(!ds) return ''; const [y,m,d]=ds.split('-').map(Number); if(!y) return ds; return new Date(y,m-1,d).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
 function jobCard(j){
   const p=jobProgress(j);
   const sub=[j.orderNo?('Order #'+j.orderNo):'', j.title&&j.title!==j.name?j.title:'', j.location?('at '+j.location):''].filter(Boolean).join(' · ');
   const barColor = j.status==='Complete' ? 'var(--good)' : (p.pct>0 ? 'var(--amber)' : 'var(--line)');
+  const schb = j.scheduledDate ? `<span class="schbadge">${fmtSched(j.scheduledDate)}</span>` : '';
   return `<div class="card${j.priority?' pri':''}" data-open="${esc(j.name)}" data-search="${esc(((j.orderNo||'')+' '+(j.customer||'')+' '+(j.title||'')+' '+(j.location||'')).toLowerCase())}" style="cursor:pointer">
     <div class="row" style="justify-content:space-between;align-items:flex-start">
       <div class="name">${esc(j.customer||j.title||j.name)}</div>
-      ${statusPill(j.status)}
+      <div class="row" style="gap:6px;align-items:center">${schb}${statusPill(j.status)}</div>
     </div>
     ${sub?`<div class="meta" style="margin:2px 0 6px">${esc(sub)}${j.priority?' · <b style="color:var(--bad)">PRIORITY</b>':''}</div>`:''}
     <div class="meta">${p.load}/${p.total} loaded${j.laborHours!=null?(' · '+j.laborHours+' hr'):''} · ${j.pallets.length} pallet(s)</div>
@@ -2002,7 +2047,7 @@ async function liveTick(){
     if(j && pk && j!==job){ /* another device changed it; leave the scanner's own view intact */ } }
 }
 function homeSig(){ return Store.list().map(j=>{const p=jobProgress(j);
-  return j.name+'|'+p.load+'/'+p.total+'|'+j.pallets.length+'|'+(j.location||'');}).join('¦'); }
+  return j.name+'|'+p.load+'/'+p.total+'|'+j.pallets.length+'|'+(j.location||'')+'|'+j.status+'|'+(j.scheduledDate||'');}).join('¦'); }
 function jobSig(j){ return j.items.map(i=>i.key+'='+loadedQty(j,i)).join(',')
   +'#'+j.pallets.map(p=>p.id+(p.loaded?'L':'')+':'+Object.values(p.contents).join('.')).join(','); }
 boot();
