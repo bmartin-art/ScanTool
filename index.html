@@ -364,6 +364,9 @@
   .cs .shoponly{display:grid;grid-template-columns:repeat(3,1fr);gap:11px 18px;background:#fbe6d3;border-top:1px solid #e4c78a;padding:11px 12px;margin:8px -12px -9px}
   .cs .shoponly .f input,.cs .shoponly .f select{background:#fff}
   .cs .statushint{font-size:11px;color:var(--csmuted);margin-top:10px}
+  .cs .linerchecks{display:flex;gap:14px;flex-wrap:wrap;flex:1}
+  .cs .chk.sm{flex:none;gap:6px;font-size:12.5px}
+  .cs .chk.sm input{width:16px;height:16px}
   .cs .deliv-head{font-weight:700;margin-bottom:4px}
   .cs .delivgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px 16px;margin-top:10px}
   .cs .delivgrid.hidden{display:none}
@@ -648,12 +651,17 @@ const CustomLists={
     for(const v of Object.values(this.data.jobs)) if(v.name) JMAP[v.name.toUpperCase()]=v.po||'';
   },
   _save(){ try{ localStorage.setItem(this.key, JSON.stringify(this.data)); }catch(e){} },
-  addCustomer(name,acct){ name=(name||'').trim(); if(!name) return false; const u=name.toUpperCase();
-    const isNew=(CMAP[u]===undefined); this.data.customers[u]={name,acct:(acct||'').trim()}; CMAP[u]=(acct||'').trim(); this._save(); return isNew; },
+  addCustomer(name,acct,contact,email){ name=(name||'').trim(); if(!name) return false; const u=name.toUpperCase();
+    const isNew=(CMAP[u]===undefined); const prev=this.data.customers[u]||{};
+    this.data.customers[u]={name, acct:(acct||'').trim(), contact:(contact||prev.contact||'').trim(), email:(email||prev.email||'').trim()};
+    CMAP[u]=(acct||'').trim(); this._save(); return isNew; },
   addJob(name,po){ name=(name||'').trim(); if(!name) return false; const u=name.toUpperCase();
     const isNew=(JMAP[u]===undefined); this.data.jobs[u]={name,po:(po||'').trim()}; JMAP[u]=(po||'').trim(); this._save(); return isNew; },
+  customerInfo(name){ return this.data.customers[(name||'').trim().toUpperCase()]||null; },
   custList(){ const m=new Map(); for(const [n,a] of BASE_CUSTOMERS) m.set(n.toUpperCase(),[n,a]); for(const v of Object.values(this.data.customers)) m.set(v.name.toUpperCase(),[v.name,v.acct]); return [...m.values()]; },
   jobList(){ const m=new Map(); for(const [n,p] of BASE_JOBS) m.set(n.toUpperCase(),[n,p]); for(const v of Object.values(this.data.jobs)) m.set(v.name.toUpperCase(),[v.name,v.po]); return [...m.values()]; },
+  emailList(){ const s=new Set(); for(const v of Object.values(this.data.customers)) if(v.email) s.add(v.email); return [...s]; },
+  contactList(){ const s=new Set(); for(const v of Object.values(this.data.customers)) if(v.contact) s.add(v.contact); return [...s]; },
 };
 CustomLists.load();
 function col(headers,names){
@@ -702,7 +710,7 @@ function buildJobFromCSV(text, jobName){
     const keys=key.split(',').map(s=>s.trim()).filter(Boolean);
     const nGuid=Math.max(1,keys.length);
     const feachPer=feach/nGuid;
-    if(/labor/i.test(desc)){ excludedLabor++; if(qty>0) laborLineHours+=feachPer*qty; continue; }
+    if(/labor/i.test(desc)){ excludedLabor++; if(qty>0) laborLineHours+=qty/60; continue; }   // labor line: Qty = minutes of billed labor
     if(qty<=0){ excludedZero++; continue; }
     fabHours += feachPer*qty;                               // total = per-piece x quantity
     seq++;
@@ -727,7 +735,7 @@ function buildJobFromCSV(text, jobName){
     name: orderNo || jobName,          // storage key: order number is unique; job names can collide
     orderNo, customer, title:jobName,  // display fields
     company:'', email:'', otype:'', needBy:'', priority:false, status:'Received', scheduledDate:'', // front-office fields
-    laborHours: iFtime>=0 ? Math.round(fabHours*100)/100 : undefined,   // total CAM fab time
+    laborHours: (iFtime>=0||laborLineHours>0) ? Math.round((fabHours+laborLineHours)*100)/100 : undefined,   // fab pieces + billed labor
     cover:{},                          // job-spec cover sheet data (filled in the app)
     createdAt:Date.now(),
     items, pallets:[], palletSeq:0,
@@ -914,6 +922,8 @@ function renderOrderForm(){
   const opt=(id,val,label)=>`<option ${((c[id]||'')===val)?'selected':''}>${label!=null?label:val}</option>`;
   const opts=(id,arr)=>arr.map(x=>opt(id,x)).join('');
   const dlCust=CustomLists.custList().map(([n])=>`<option value="${esc(n)}">`).join('');
+  const dlEmail=CustomLists.emailList().map(e=>`<option value="${esc(e)}">`).join('');
+  const dlContact=CustomLists.contactList().map(c=>`<option value="${esc(c)}">`).join('');
   const dlJob =CustomLists.jobList().map(([n])=>`<option value="${esc(n)}">`).join('');
   const dlShip=['SHIP','P/U'].map(n=>`<option value="${n}">`).join('');
 
@@ -930,8 +940,8 @@ function renderOrderForm(){
       <div class="f wide"><label>Ship To / Job</label><input id="cs_job" list="cs_jobList" autocomplete="off" value="${v('job')}" placeholder="Pick from list or type…"><datalist id="cs_jobList">${dlJob}</datalist></div>
       <div class="f"><label>Project Buyer</label><input id="cs_buyer" value="${v('buyer')}"></div>
       <div class="f"><label>Del Date</label><input id="cs_deldate" type="date" value="${v('deldate')}"></div>
-      <div class="f"><label>Job Contact</label><input id="cs_contact" value="${v('contact')}" placeholder="First name for the email"></div>
-      <div class="f wide"><label>Customer Email</label><input id="cs_email" type="email" autocomplete="off" value="${v('email')}"></div>
+      <div class="f"><label>Job Contact</label><input id="cs_contact" list="cs_contactList" autocomplete="off" value="${v('contact')}" placeholder="First name for the email"><datalist id="cs_contactList">${dlContact}</datalist></div>
+      <div class="f wide"><label>Customer Email</label><input id="cs_email" type="email" list="cs_emailList" autocomplete="off" value="${v('email')}"><datalist id="cs_emailList">${dlEmail}</datalist></div>
       <div class="f"><label>Phone #</label><input id="cs_phone" type="tel" value="${v('phone')}"></div>
       <div class="f"><label>C.S.R.</label><select id="cs_csr"><option value=""></option>${opts('csr',['PR','CH'])}</select></div>
       <div class="f"><label>Ship / Pickup</label><input id="cs_shipto" list="cs_shipList" autocomplete="off" value="${v('shipto')}" placeholder="SHIP, P/U…"><datalist id="cs_shipList">${dlShip}</datalist></div>
@@ -979,7 +989,12 @@ function renderOrderForm(){
           <div class="row"><label class="chk"><input type="checkbox" id="cs_c_prefabr" ${on('c_prefabr')}><span>Prefab</span></label></div></div></div>
         <div class="card"><h3>Insulation</h3><div class="body">
           <div class="row"><label class="chk"><input type="checkbox" id="cs_c_matfaced" ${on('c_matfaced')}><span>Mat-faced liner</span></label></div>
-          <div class="row"><span class="rl">Liner thickness</span><select id="cs_linerthk"><option value=""></option>${opts('linerthk',['1/2"','1"','1-1/2"','2"'])}</select></div>
+          <div class="row"><span class="rl">Liner thickness</span><div class="linerchecks">
+            <label class="chk sm"><input type="checkbox" id="cs_liner_05" ${on('liner_05')}><span>1/2&quot;</span></label>
+            <label class="chk sm"><input type="checkbox" id="cs_liner_1" ${on('liner_1')}><span>1&quot;</span></label>
+            <label class="chk sm"><input type="checkbox" id="cs_liner_15" ${on('liner_15')}><span>1-1/2&quot;</span></label>
+            <label class="chk sm"><input type="checkbox" id="cs_liner_2" ${on('liner_2')}><span>2&quot;</span></label>
+          </div></div>
           <div class="row"><label class="chk"><input type="checkbox" id="cs_c_doublewall" ${on('c_doublewall')}><span>Doublewall</span></label></div></div></div>
       </div>
       <div class="col"><div class="col-tag">Round / Spiral</div>
@@ -1053,7 +1068,12 @@ function renderOrderForm(){
 
   // customer -> acct #, job -> PO # auto-fill
   const cust=document.getElementById('cs_customer'), acct=document.getElementById('cs_acct');
-  cust.addEventListener('input',()=>{ acct.value=CMAP[(cust.value||'').trim().toUpperCase()]||''; });
+  cust.addEventListener('input',()=>{ const u=(cust.value||'').trim().toUpperCase(); acct.value=CMAP[u]||'';
+    const info=CustomLists.customerInfo(cust.value);
+    if(info){ const ce=document.getElementById('cs_contact'), ee=document.getElementById('cs_email');
+      if(ce && !ce.value && info.contact) ce.value=info.contact;
+      if(ee && !ee.value && info.email) ee.value=info.email; }
+  });
   const jobEl=document.getElementById('cs_job'), poEl=document.getElementById('cs_po');
   jobEl.addEventListener('input',()=>{ const po=JMAP[(jobEl.value||'').trim().toUpperCase()]; if(po!==undefined) poEl.value=po; });
   // delivery section show/hide + print ticket
@@ -1101,7 +1121,7 @@ function csLeanForPrint(){
 
 // Every cover-sheet field id (minus the cs_ prefix) that we persist into record.cover
 const CS_FIELDS=['customer','acct','po','job','buyer','deldate','contact','email','phone','csr','shipto','freight','delivery','ordernum',
-  'std','mat','labels','rpc','rnp','rec','recd','coilwidth','roec','notes','camfile','linerthk',
+  'std','mat','labels','rpc','rnp','rec','recd','coilwidth','roec','notes','camfile','liner_05','liner_1','liner_15','liner_2',
   'c_exposed','c_beaded','c_crossbreak','c_tagged','c_wrapped','c_bagged','c_angle','c_tierods','c_pocket','c_sealed','c_damper','c_soldered',
   'c_persmacna','c_pitt','c_standing','c_lap','c_kd','c_migr','c_prefabr','c_matfaced','c_doublewall',
   'c_spot','c_tack','c_stitch','c_migw','c_prefabro','c_ccl1','c_ccl15','c_sp1','c_sp2','c_mf12','c_fsk',
@@ -1114,7 +1134,7 @@ function saveCoverSheet(existing, isNew){
   const mc=document.getElementById('cs_matchcode'); cov.matchCode = (mc&&mc.value) || (existing&&existing.cover&&existing.cover.matchCode) || '';
   // remember new list entries for next time (customer->acct, ship-to/job->PO)
   let learned=0;
-  if(cov.customer){ if(CustomLists.addCustomer(cov.customer, cov.acct)) learned++; }
+  if(cov.customer){ if(CustomLists.addCustomer(cov.customer, cov.acct, cov.contact, cov.email)) learned++; }
   if(cov.job){ if(CustomLists.addJob(cov.job, cov.po)) learned++; }
   if(learned) toast('Saved to lists for next time');
   const ordernum=(cov.ordernum||'').trim();
@@ -1195,6 +1215,7 @@ function printDeliveryTicket(d){
 function openSchedule(){ if(!weekStart) weekStart=mondayOf(new Date()); go('schedule'); }
 
 function renderSchedule(){
+  if(tvMode) weekStart=mondayOf(new Date());        // TV always shows the current week
   if(!weekStart) weekStart=mondayOf(new Date());
   const week1=weekDays(weekStart);
   const nextStart=new Date(weekStart); nextStart.setDate(weekStart.getDate()+7);
@@ -1330,7 +1351,7 @@ function schedCard(j, ds){
     <div class="scbar"><i style="width:${p.pct}%;background:${color}"></i></div>
   </div>`;
 }
-function schedSig(){ return Store.list().map(j=>j.name+':'+j.scheduledDate+':'+jobProgress(j).load+'/'+jobProgress(j).total+':'+j.status+':'+(j.laborHours||0)+':'+(j.location||'')+':'+(j.splits?JSON.stringify(j.splits):'')).join('|'); }
+function schedSig(){ return ymd(mondayOf(new Date()))+'|'+Store.list().map(j=>j.name+':'+j.scheduledDate+':'+jobProgress(j).load+'/'+jobProgress(j).total+':'+j.status+':'+(j.laborHours||0)+':'+(j.location||'')+':'+(j.splits?JSON.stringify(j.splits):'')).join('|'); }
 
 /* ---------- DELIVERY SCHEDULE ------------------------------------------- */
 function openDelivery(){ if(!weekStart) weekStart=mondayOf(new Date()); go('delivery'); }
