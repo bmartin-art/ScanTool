@@ -1420,6 +1420,11 @@ function renderSettings(first){
         ${first?'':'<button class="btn ghost" id="cfgBack">Back</button>'}
       </div>
       <p id="cfgMsg" class="muted" style="margin-top:14px;font-size:13px"></p>
+      ${first?'':`<div style="margin-top:22px;border-top:1px solid var(--line);padding-top:18px">
+        <label class="muted" style="font-size:13px;display:block;margin-bottom:6px">OneDrive ingest</label>
+        <button class="btn" id="cfgIngest">Check OneDrive for new files now</button>
+        <p id="ingestMsg" class="muted" style="margin-top:10px;font-size:13px">Use this if a file is in the folder but hasn't shown up yet.</p>
+      </div>`}
     </div>`;
   document.getElementById('cfgSave').onclick=async()=>{
     const base=document.getElementById('cfgBase').value.trim();
@@ -1432,6 +1437,25 @@ function renderSettings(first){
     else{ msg.textContent='Could not reach the Worker. Check the URL and access code.'; }
   };
   const back=document.getElementById('cfgBack'); if(back) back.onclick=()=>{ goHome(); };
+  const ing=document.getElementById('cfgIngest');
+  if(ing) ing.onclick=async()=>{
+    const cfg=Cfg.get(); const m=document.getElementById('ingestMsg');
+    ing.disabled=true; m.textContent='Checking OneDrive…';
+    try{
+      const res=await fetch(cfg.base.replace(/\/$/,'')+'/ingest-now',{ headers:{'X-Access-Token':cfg.token} });
+      const r=await res.json();
+      if(!res.ok){ m.textContent='Error: '+(r.error||res.status); }
+      else{
+        const acts=(r.results||[]);
+        const brought=acts.filter(x=>/created|merged|claimed|re-ingesting/i.test(x.action||'')).length;
+        const errs=(r.errors||[]).length;
+        m.textContent = brought+' file(s) pulled in'+(errs?(' · '+errs+' error(s)'):'')+'. '+(acts.length-brought)+' already current.';
+        Store.init().then(()=>{ if(view==='settings') return; });   // refresh cache
+        if(brought) toast(brought+' new file(s) ingested');
+      }
+    }catch(e){ m.textContent='Could not reach the Worker: '+e.message; }
+    ing.disabled=false;
+  };
 }
 function renderHome(){
   const jobs=Store.list();
