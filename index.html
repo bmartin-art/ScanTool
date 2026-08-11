@@ -402,6 +402,8 @@
     body.csprint .cs .hdr{border:none;border-radius:0;padding:8px 0 10px;gap:6px 16px}
     body.csprint .cs .hdr .f label{font-size:8px}
     body.csprint .cs input,body.csprint .cs select,body.csprint .cs textarea{-webkit-appearance:none;appearance:none;border:none !important;background:none !important;outline:none !important;color:var(--csink);border-bottom:1px solid var(--csline) !important;border-radius:0 !important;font-weight:700;padding:1px 0 !important;font-size:12px}
+    body.csprint .cs input[type=checkbox]{width:13px;height:13px;min-width:13px;flex:none;border:1.4px solid var(--csink) !important;border-radius:2px !important;border-bottom-width:1.4px !important;background:#fff !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body.csprint .cs input[type=checkbox]:checked{background:linear-gradient(45deg,transparent 42%,var(--csink) 42%,var(--csink) 58%,transparent 58%),linear-gradient(-45deg,transparent 42%,var(--csink) 42%,var(--csink) 58%,transparent 58%) !important}
     body.csprint .cs .panels{display:block;column-count:2;column-gap:8mm;margin-top:8px}
     body.csprint .cs .col{gap:6px}
     body.csprint .cs .col-tag{font-size:9px;padding-bottom:1px}
@@ -1068,12 +1070,7 @@ function renderOrderForm(){
 
   // customer -> acct #, job -> PO # auto-fill
   const cust=document.getElementById('cs_customer'), acct=document.getElementById('cs_acct');
-  cust.addEventListener('input',()=>{ const u=(cust.value||'').trim().toUpperCase(); acct.value=CMAP[u]||'';
-    const info=CustomLists.customerInfo(cust.value);
-    if(info){ const ce=document.getElementById('cs_contact'), ee=document.getElementById('cs_email');
-      if(ce && !ce.value && info.contact) ce.value=info.contact;
-      if(ee && !ee.value && info.email) ee.value=info.email; }
-  });
+  cust.addEventListener('input',()=>{ acct.value=CMAP[(cust.value||'').trim().toUpperCase()]||''; });
   const jobEl=document.getElementById('cs_job'), poEl=document.getElementById('cs_po');
   jobEl.addEventListener('input',()=>{ const po=JMAP[(jobEl.value||'').trim().toUpperCase()]; if(po!==undefined) poEl.value=po; });
   // delivery section show/hide + print ticket
@@ -1097,9 +1094,11 @@ function renderOrderForm(){
 function csLeanForPrint(){
   const root=document.querySelector('.cs'); if(!root) return ()=>{};
   const hidden=[]; const hide=el=>{ if(el){ el.classList.add('cs-hide'); hidden.push(el); } };
+  // hide unchecked checkbox options so only ticked ones print (with an X)
+  root.querySelectorAll('.chk').forEach(lbl=>{ const cb=lbl.querySelector('input[type=checkbox]'); if(cb && !cb.checked) hide(lbl); });
   root.querySelectorAll('.row').forEach(row=>{
-    const cb=row.querySelector('input[type=checkbox]');
-    if(cb){ if(!cb.checked) hide(row); return; }
+    const cbs=[...row.querySelectorAll('input[type=checkbox]')];
+    if(cbs.length){ if(!cbs.some(c=>c.checked)) hide(row); return; }   // show row if ANY box is ticked
     const el=row.querySelector('select,input[type=text]');
     if(!el || !el.value.trim()) hide(row);
   });
@@ -1439,18 +1438,16 @@ function renderSettings(first){
   const back=document.getElementById('cfgBack'); if(back) back.onclick=()=>{ goHome(); };
   const ing=document.getElementById('cfgIngest');
   if(ing) ing.onclick=async()=>{
-    const cfg=Cfg.get(); const m=document.getElementById('ingestMsg');
-    ing.disabled=true; m.textContent='Checking OneDrive…';
+    const m=document.getElementById('ingestMsg');
+    ing.disabled=true; m.textContent='Checking OneDrive…'; lastIngestPoke=Date.now();
     try{
-      const res=await fetch(cfg.base.replace(/\/$/,'')+'/ingest-now',{ headers:{'X-Access-Token':cfg.token} });
-      const r=await res.json();
-      if(!res.ok){ m.textContent='Error: '+(r.error||res.status); }
+      const r=await forceIngest();
+      if(!r){ m.textContent='Not connected.'; }
       else{
         const acts=(r.results||[]);
         const brought=acts.filter(x=>/created|merged|claimed|re-ingesting/i.test(x.action||'')).length;
         const errs=(r.errors||[]).length;
         m.textContent = brought+' file(s) pulled in'+(errs?(' · '+errs+' error(s)'):'')+'. '+(acts.length-brought)+' already current.';
-        Store.init().then(()=>{ if(view==='settings') return; });   // refresh cache
         if(brought) toast(brought+' new file(s) ingested');
       }
     }catch(e){ m.textContent='Could not reach the Worker: '+e.message; }
@@ -2059,11 +2056,21 @@ function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+let lastIngestPoke=0;
+async function forceIngest(){
+  const cfg=Cfg.get(); if(!cfg.base||!cfg.token) return null;
+  const res=await fetch(cfg.base.replace(/\/$/,'')+'/ingest-now',{ headers:{'X-Access-Token':cfg.token} });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  return res.json();
+}
+function pokeIngest(){ const now=Date.now(); if(now-lastIngestPoke<90000) return; lastIngestPoke=now; forceIngest().catch(()=>{}); }  // silent, throttled kickstart
+
 async function boot(){
   if(!Cfg.ready()){ view='settings'; render(); return; }
   await Store.init();
   view='home'; render();
   startPolling();
+  pokeIngest();                        // opening the app nudges OneDrive ingest (helps the first-of-morning file)
 }
 
 /* ---------- live polling: refresh the shared views in near real time ------ */
@@ -2074,9 +2081,10 @@ function startPolling(){
   document.addEventListener('visibilitychange', onVis);
 }
 function stopPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer=null; }
-function onVis(){ if(!document.hidden) liveTick(); }
+function onVis(){ if(!document.hidden){ pokeIngest(); liveTick(); } }
 async function liveTick(){
   if(polling || document.hidden) return;
+  pokeIngest();                        // open app drives OneDrive ingest (throttled ~90s) so it doesn't rely on the cron
   polling=true; const ok=await Store.sync(); polling=false;
   const dot=document.getElementById('liveDot'); if(dot) dot.className='live'+(ok?'':' off');
   if(!ok) return;
