@@ -365,6 +365,10 @@
   .cs .shoponly .f input,.cs .shoponly .f select{background:#fff}
   .cs .statushint{font-size:11px;color:var(--csmuted);margin-top:10px}
   .cs .linerchecks{display:flex;gap:14px;flex-wrap:wrap;flex:1}
+  .cs .joblist-row{display:flex;gap:6px;align-items:stretch}
+  .cs .joblist-row input{flex:1}
+  .cs .minibtn{flex:none;border:1px solid var(--csline);background:#eef3f8;color:var(--cssteel);border-radius:5px;padding:0 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .cs .minibtn:hover{background:#e0e8f0}
   .cs .chk.sm{flex:none;gap:6px;font-size:12.5px}
   .cs .chk.sm input{width:16px;height:16px}
   .cs .deliv-head{font-weight:700;margin-bottom:4px}
@@ -939,7 +943,7 @@ function renderOrderForm(){
       <div class="f wide"><label>Customer</label><input id="cs_customer" list="cs_custList" autocomplete="off" value="${v('customer')}" placeholder="Type to search…"><datalist id="cs_custList">${dlCust}</datalist></div>
       <div class="f"><label>Cust Acct #</label><input id="cs_acct" value="${v('acct')}" placeholder="—"></div>
       <div class="f"><label>Customer P.O. #</label><input id="cs_po" value="${v('po')}"></div>
-      <div class="f wide"><label>Ship To / Job</label><input id="cs_job" list="cs_jobList" autocomplete="off" value="${v('job')}" placeholder="Pick from list or type…"><datalist id="cs_jobList">${dlJob}</datalist></div>
+      <div class="f wide"><label>Ship To / Job</label><div class="joblist-row"><input id="cs_job" list="cs_jobList" autocomplete="off" value="${v('job')}" placeholder="Pick from list or type…"><button type="button" id="cs_addjob" class="minibtn" title="Save this job name + PO to the auto-fill list">+ PO</button></div><datalist id="cs_jobList">${dlJob}</datalist></div>
       <div class="f"><label>Project Buyer</label><input id="cs_buyer" value="${v('buyer')}"></div>
       <div class="f"><label>Del Date</label><input id="cs_deldate" type="date" value="${v('deldate')}"></div>
       <div class="f"><label>Job Contact</label><input id="cs_contact" list="cs_contactList" autocomplete="off" value="${v('contact')}" placeholder="First name for the email"><datalist id="cs_contactList">${dlContact}</datalist></div>
@@ -1073,6 +1077,13 @@ function renderOrderForm(){
   cust.addEventListener('input',()=>{ acct.value=CMAP[(cust.value||'').trim().toUpperCase()]||''; });
   const jobEl=document.getElementById('cs_job'), poEl=document.getElementById('cs_po');
   jobEl.addEventListener('input',()=>{ const po=JMAP[(jobEl.value||'').trim().toUpperCase()]; if(po!==undefined) poEl.value=po; });
+  const addJobBtn=document.getElementById('cs_addjob');
+  if(addJobBtn) addJobBtn.onclick=()=>{
+    const jn=(jobEl.value||'').trim(), po=(poEl.value||'').trim();
+    if(!jn){ toast('Enter a job name first'); return; }
+    CustomLists.addJob(jn, po);
+    toast('Saved "'+jn+'" → PO '+(po||'(none)')+' to the auto-fill list');
+  };
   // delivery section show/hide + print ticket
   const dOn=document.getElementById('cs_deliv_on'), dFields=document.getElementById('deliv_fields');
   if(dOn) dOn.addEventListener('change',()=>dFields.classList.toggle('hidden',!dOn.checked));
@@ -1134,7 +1145,6 @@ function saveCoverSheet(existing, isNew){
   // remember new list entries for next time (customer->acct, ship-to/job->PO)
   let learned=0;
   if(cov.customer){ if(CustomLists.addCustomer(cov.customer, cov.acct, cov.contact, cov.email)) learned++; }
-  if(cov.job){ if(CustomLists.addJob(cov.job, cov.po)) learned++; }
   if(learned) toast('Saved to lists for next time');
   const ordernum=(cov.ordernum||'').trim();
   const sched=(document.getElementById('cs_sched').value||'');
