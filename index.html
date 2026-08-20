@@ -190,6 +190,7 @@
   .counter button{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);
     background:var(--panel2);color:var(--ink);font-size:22px;font-weight:700}
   .counter .v{font-family:var(--mono);font-size:22px;font-weight:700;min-width:64px;text-align:center}
+  .counter input.vin{font-family:var(--mono);font-size:22px;font-weight:700;width:82px;text-align:center;padding:8px 4px;border:1px solid var(--line);border-radius:8px;background:var(--inset);color:var(--ink)}
   .counter .of{color:var(--muted);font-size:14px}
 
   /* pallets */
@@ -1723,7 +1724,7 @@ function stockTile(it){
     <div class="n">item ${esc(it.itemNo)} · ${wh}/${it.qty} in warehouse${mode==='truck'?(' · '+tr+'/'+it.qty+' on truck'):''}</div>
     <div class="counter">
       <button data-step="-1">−</button>
-      <span class="v">${cur}</span>
+      <input class="v vin" type="number" inputmode="numeric" min="0" max="${it.qty}" value="${cur}" data-setstock="${esc(it.key)}">
       <button data-step="1">+</button>
       <span class="of">of ${it.qty} · to ${destLabel}</span>
     </div></div>`;
@@ -1745,6 +1746,25 @@ function wireStockTiles(){
       } else {
         if(step>0 && whQty(job,it)>=it.qty){ toast('Already fully in warehouse'); return; }
         it.wh=Math.max(0,(it.wh||0)+step);
+      }
+      bumpStatus(job); Store.save(job); render();
+    });
+    // type an exact count (e.g. 700) instead of tapping +1
+    const box=tile.querySelector('[data-setstock]');
+    if(box) box.addEventListener('change',()=>{
+      const it=job.items.find(i=>i.key===key);
+      let val=parseInt(box.value,10); if(isNaN(val)||val<0) val=0;
+      if(mode==='pallet'){
+        if(!activePallet){ toast('Open a pallet first'); render(); return; }
+        const other=whQty(job,it)-(activePallet.contents[key]||0);
+        val=Math.max(0,Math.min(val, it.qty-other));
+        activePallet.contents[key]=val; if(val===0) delete activePallet.contents[key];
+      } else if(mode==='truck'){
+        const other=truckQty(job,it)-(it.truck||0);
+        it.truck=Math.max(0,Math.min(val, it.qty-other));
+      } else {
+        const other=whQty(job,it)-(it.wh||0);
+        it.wh=Math.max(0,Math.min(val, it.qty-other));
       }
       bumpStatus(job); Store.save(job); render();
     });
