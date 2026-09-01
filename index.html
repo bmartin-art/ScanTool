@@ -338,6 +338,15 @@
   .cs .matchbar b{font-family:var(--mono);font-size:18px;color:#ffd27a;letter-spacing:.04em}
   .cs .matchbar span{font-size:11.5px;color:#c7d2e0;font-weight:500}
   .cs .hdr{background:#fff;border:1px solid var(--csline);border-top:none;border-radius:0 0 7px 7px;padding:14px 20px 16px;display:grid;grid-template-columns:repeat(4,1fr);gap:11px 18px}
+  .cs .cs-hdrwrap{display:flex;gap:14px;align-items:stretch}
+  .cs .cs-hdrwrap .hdr{flex:1;border-radius:0 0 0 7px}
+  .cs .jobnotes{width:290px;flex:none;background:#fff;border:1px solid var(--csline);border-top:none;border-radius:0 0 7px 0;padding:14px;display:flex;flex-direction:column}
+  .cs .jobnotes .jn-head{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--cssteel)}
+  .cs .jobnotes .jn-head span{display:block;font-size:10px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--csmuted);margin-top:2px}
+  .cs .jobnotes textarea{flex:1;min-height:130px;margin-top:8px;resize:vertical;font:inherit;font-size:13px;border:1px solid var(--csline);border-radius:5px;padding:9px;background:var(--csfield)}
+  .cs .jobnotes.has-note{background:#fff6e8;border-color:#e4b063}
+  .cs .jobnotes.has-note textarea{background:#fffdf6;border-color:#e4b063}
+  .cs .jn-hint{font-size:10.5px;color:var(--csmuted);margin-top:6px}
   .cs .f{display:flex;flex-direction:column;gap:3px;min-width:0}
   .cs .f.wide{grid-column:span 2}
   .cs .f label{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--csmuted);font-weight:700}
@@ -433,6 +442,8 @@
     .cards,.tiles{grid-template-columns:1fr;gap:12px}
     .board{grid-template-columns:1fr;gap:12px}
     .cs .hdr{grid-template-columns:1fr 1fr}
+    .cs .cs-hdrwrap{flex-direction:column}
+    .cs .jobnotes{width:auto;border-top:1px solid var(--csline);border-radius:0 0 7px 7px}
     .cs .delivgrid{grid-template-columns:1fr 1fr}
     .cs .panels{grid-template-columns:1fr}
     .cs .staging{grid-template-columns:repeat(2,1fr)}
@@ -671,6 +682,19 @@ const CustomLists={
   contactList(){ const s=new Set(); for(const v of Object.values(this.data.customers)) if(v.contact) s.add(v.contact); return [...s]; },
 };
 CustomLists.load();
+
+// Free-text notes remembered per customer + job name (e.g. "Walmart is TDC only").
+// They reappear whenever the same customer + job are entered again.
+const JobNotes={
+  key:'dt_jobnotes', data:{},
+  load(){ try{ this.data=JSON.parse(localStorage.getItem(this.key)||'{}')||{}; }catch(e){ this.data={}; } },
+  _k(cust,job){ return (cust||'').trim().toUpperCase()+'|'+(job||'').trim().toUpperCase(); },
+  get(cust,job){ if(!(cust||'').trim()||!(job||'').trim()) return ''; return this.data[this._k(cust,job)]||''; },
+  set(cust,job,note){ if(!(cust||'').trim()||!(job||'').trim()) return; const k=this._k(cust,job);
+    if((note||'').trim()){ this.data[k]=note.trim(); } else { delete this.data[k]; }
+    try{ localStorage.setItem(this.key, JSON.stringify(this.data)); }catch(e){} },
+};
+JobNotes.load();
 function col(headers,names){
   for(const n of names){ const idx=headers.findIndex(h=>h.trim().toLowerCase()===n); if(idx>=0) return idx; }
   return -1;
@@ -940,6 +964,7 @@ function renderOrderForm(){
       <div class="title"><h1>Job / Shop Cover Sheet</h1><p>Fabrication Spec &amp; Routing</p></div>
     </div>
     <div class="matchbar">Match code <b>+${esc(matchCode)}</b><span>Programmer: add <b>+${esc(matchCode)}</b> to the end of the CAMduct file name when saving, and this sheet links to it automatically.</span><input type="hidden" id="cs_matchcode" value="${esc(matchCode)}"></div>
+    <div class="cs-hdrwrap">
     <div class="hdr">
       <div class="f wide"><label>Customer</label><input id="cs_customer" list="cs_custList" autocomplete="off" value="${v('customer')}" placeholder="Type to search…"><datalist id="cs_custList">${dlCust}</datalist></div>
       <div class="f"><label>Cust Acct #</label><input id="cs_acct" value="${v('acct')}" placeholder="—"></div>
@@ -955,6 +980,12 @@ function renderOrderForm(){
       <div class="f"><label>Freight Rate $</label><input id="cs_freight" value="${v('freight')}"></div>
       <div class="f"><label>Delivery</label><select id="cs_delivery"><option value=""></option>${opts('delivery',['BEST WAY','W/C','OT'])}</select></div>
       <div class="f"><label>Order # (once programmed)</label><input id="cs_ordernum" value="${v('ordernum')}" inputmode="numeric" placeholder="fills in later"></div>
+    </div>
+    <div class="jobnotes" id="jobnotesPanel">
+      <div class="jn-head">Job notes<span>Remembered for this customer + job</span></div>
+      <textarea id="cs_jobnote" placeholder="e.g. Walmart is TDC only. Notes here come back next time you enter this same customer + job."></textarea>
+      <div class="jn-hint" id="jnHint"></div>
+    </div>
     </div>
 
     <div class="panels">
@@ -1085,6 +1116,26 @@ function renderOrderForm(){
     CustomLists.addJob(jn, po);
     toast('Saved "'+jn+'" → PO '+(po||'(none)')+' to the auto-fill list');
   };
+  // remembered job notes (per customer + job)
+  const jnEl=document.getElementById('cs_jobnote'), jnHint=document.getElementById('jnHint'), jnPanel=document.getElementById('jobnotesPanel');
+  let jnCombo={cust:c.customer||'', job:c.job||''};
+  function jnRefresh(reload){
+    const cu=cust.value, jo=jobEl.value;
+    if(reload && (cu!==jnCombo.cust || jo!==jnCombo.job)){
+      JobNotes.set(jnCombo.cust, jnCombo.job, jnEl.value);   // save note under the previous combo
+      jnCombo={cust:cu, job:jo};
+      jnEl.value=JobNotes.get(cu,jo);                         // load note for the new combo
+    }
+    const both=cu.trim()&&jo.trim();
+    const has=both && !!jnEl.value.trim();
+    jnPanel.classList.toggle('has-note', has);
+    jnHint.textContent = both ? (has?'Saved reminder for this job.':'Notes here come back for this customer + job.') : 'Enter a customer and job to attach notes.';
+  }
+  jnEl.value=JobNotes.get(jnCombo.cust, jnCombo.job);
+  cust.addEventListener('input',()=>jnRefresh(true));
+  jobEl.addEventListener('input',()=>jnRefresh(true));
+  jnEl.addEventListener('input',()=>{ JobNotes.set(cust.value, jobEl.value, jnEl.value); jnRefresh(false); });
+  jnRefresh(false);
   // delivery section show/hide + print ticket
   const dOn=document.getElementById('cs_deliv_on'), dFields=document.getElementById('deliv_fields');
   if(dOn) dOn.addEventListener('change',()=>dFields.classList.toggle('hidden',!dOn.checked));
@@ -1119,6 +1170,7 @@ function csLeanForPrint(){
     if(!v || v==='No') hide(f);
   });
   const notes=root.querySelector('.notes textarea'); if(notes && !notes.value.trim()) hide(notes.closest('.card'));
+  const jn=root.querySelector('#cs_jobnote'); if(jn && !jn.value.trim()) hide(root.querySelector('#jobnotesPanel'));
   root.querySelectorAll('.stg').forEach(s=>{ const i=s.querySelector('input'); if(!parseFloat(i&&i.value)) hide(s); });
   root.querySelectorAll('.card').forEach(card=>{
     const kids=card.querySelectorAll('.row, .stg, textarea');
