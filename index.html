@@ -327,6 +327,22 @@
   body.tv .daybody{height:74vh}
 
   /* ===== cover sheet (scoped under .cs, light theme, isolated from the app) ===== */
+  .cs-layout{display:flex;gap:16px;align-items:flex-start}
+  .cs-layout .cs{flex:1;min-width:0}
+  .joblist-side{width:270px;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;position:sticky;top:16px}
+  .joblist-side h3{margin:0 0 4px;font-size:15px}
+  .joblist-side .jls-sub{margin:0 0 12px;font-size:12px;color:var(--muted);line-height:1.35}
+  .joblist-side .jls-add{display:flex;flex-direction:column;gap:7px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:10px}
+  .joblist-side .jls-add input{font:inherit;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--inset);color:var(--ink)}
+  .joblist-side .jls-list{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto}
+  .joblist-side .jls-item{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer}
+  .joblist-side .jls-item:hover{border-color:var(--amber)}
+  .joblist-side .jls-main{flex:1;min-width:0}
+  .joblist-side .jls-name{font-weight:700;font-size:14px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .joblist-side .jls-meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
+  .joblist-side .jls-x{flex:none;width:26px;height:26px;border:none;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;border-radius:6px}
+  .joblist-side .jls-x:hover{background:var(--bad);color:#fff}
+  .joblist-side .jls-empty{font-size:13px;color:var(--muted);padding:8px 0}
   .cs{--csink:#14253b;--cssteel:#3c4f63;--csmuted:#6b7886;--csline:#d3d9e0;--csline2:#e5e9ee;--csaccent:#e07b1a;--csfield:#fffdf6;
       background:#eceff3;color:var(--csink);border-radius:12px;padding:16px;margin-bottom:40px;font-size:14px;line-height:1.4}
   .cs .masthead{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid var(--csline);border-radius:7px 7px 0 0;padding:14px 20px}
@@ -404,7 +420,9 @@
     .cs-hide{display:none !important}
     body.csprint > *{display:none !important}
     body.csprint #app{display:block !important}
-    body.csprint #app > *:not(.cs){display:none !important}
+    body.csprint #app > *:not(.cs-layout){display:none !important}
+    body.csprint .cs-layout{display:block !important}
+    body.csprint .joblist-side{display:none !important}
     body.csprint .cs .noprint{display:none !important}
     body.csprint .cs{background:#fff;padding:0;font-size:11px}
     body.csprint .cs .masthead{padding:0 0 8px;border:none;border-bottom:2px solid var(--csink);border-radius:0}
@@ -442,6 +460,8 @@
     .cards,.tiles{grid-template-columns:1fr;gap:12px}
     .board{grid-template-columns:1fr;gap:12px}
     .cs .hdr{grid-template-columns:1fr 1fr}
+    .cs-layout{flex-direction:column}
+    .joblist-side{width:auto;position:static}
     .cs .cs-hdrwrap{flex-direction:column}
     .cs .jobnotes{width:auto;border-top:1px solid var(--csline);border-radius:0 0 7px 7px}
     .cs .delivgrid{grid-template-columns:1fr 1fr}
@@ -673,8 +693,12 @@ const CustomLists={
     const isNew=(CMAP[u]===undefined); const prev=this.data.customers[u]||{};
     this.data.customers[u]={name, acct:(acct||'').trim(), contact:(contact||prev.contact||'').trim(), email:(email||prev.email||'').trim()};
     CMAP[u]=(acct||'').trim(); this._save(); return isNew; },
-  addJob(name,po){ name=(name||'').trim(); if(!name) return false; const u=name.toUpperCase();
-    const isNew=(JMAP[u]===undefined); this.data.jobs[u]={name,po:(po||'').trim()}; JMAP[u]=(po||'').trim(); this._save(); return isNew; },
+  addJob(name,po,ship){ name=(name||'').trim(); if(!name) return false; const u=name.toUpperCase();
+    const isNew=(JMAP[u]===undefined); const prev=this.data.jobs[u]||{};
+    this.data.jobs[u]={name, po:(po||'').trim(), ship:(ship!=null?ship:(prev.ship||'')).trim()}; JMAP[u]=(po||'').trim(); this._save(); return isNew; },
+  removeJob(name){ const u=(name||'').trim().toUpperCase(); if(this.data.jobs[u]){ delete this.data.jobs[u]; delete JMAP[u]; this._save(); } },
+  jobInfo(name){ return this.data.jobs[(name||'').trim().toUpperCase()]||null; },
+  jobEntries(){ return Object.values(this.data.jobs).slice().sort((a,b)=>a.name.toLowerCase()<b.name.toLowerCase()?-1:1); },
   customerInfo(name){ return this.data.customers[(name||'').trim().toUpperCase()]||null; },
   custList(){ const m=new Map(); for(const [n,a] of BASE_CUSTOMERS) m.set(n.toUpperCase(),[n,a]); for(const v of Object.values(this.data.customers)) m.set(v.name.toUpperCase(),[v.name,v.acct]); return [...m.values()]; },
   jobList(){ const m=new Map(); for(const [n,p] of BASE_JOBS) m.set(n.toUpperCase(),[n,p]); for(const v of Object.values(this.data.jobs)) m.set(v.name.toUpperCase(),[v.name,v.po]); return [...m.values()]; },
@@ -958,7 +982,7 @@ function renderOrderForm(){
   const dlJob =CustomLists.jobList().map(([n])=>`<option value="${esc(n)}">`).join('');
   const dlShip=['SHIP','P/U'].map(n=>`<option value="${n}">`).join('');
 
-  appEl.innerHTML=`<div class="cs">
+  appEl.innerHTML=`<div class="cs-layout"><div class="cs">
     <div class="masthead">
       <img src="${LOGO_URI}" alt="Brookstone Industries">
       <div class="title"><h1>Job / Shop Cover Sheet</h1><p>Fabrication Spec &amp; Routing</p></div>
@@ -1102,20 +1126,61 @@ function renderOrderForm(){
       <button class="btn ghost" id="csCancel">Cancel</button>
       <span id="csMsg" class="muted" style="font-size:13px"></span>
     </div>
+  </div>
+  <aside class="joblist-side noprint">
+    <h3>Active Job List</h3>
+    <p class="jls-sub">Jobs saved with a PO. Add a future job here and it's ready to auto-fill later.</p>
+    <div class="jls-add">
+      <input id="jls_name" placeholder="Job name" autocomplete="off">
+      <input id="jls_po" placeholder="PO #" autocomplete="off">
+      <input id="jls_ship" placeholder="Ship / Pickup (optional)" autocomplete="off">
+      <button class="btn" id="jls_add">Add to list</button>
+    </div>
+    <div class="jls-list" id="jlsList"></div>
+  </aside>
   </div>`;
 
   // customer -> acct #, job -> PO # auto-fill
   const cust=document.getElementById('cs_customer'), acct=document.getElementById('cs_acct');
   cust.addEventListener('input',()=>{ acct.value=CMAP[(cust.value||'').trim().toUpperCase()]||''; });
   const jobEl=document.getElementById('cs_job'), poEl=document.getElementById('cs_po');
-  jobEl.addEventListener('input',()=>{ const po=JMAP[(jobEl.value||'').trim().toUpperCase()]; if(po!==undefined) poEl.value=po; });
+  jobEl.addEventListener('input',()=>{ const info=JMAP[(jobEl.value||'').trim().toUpperCase()]; if(info!==undefined) poEl.value=info;
+    const ji=CustomLists.jobInfo(jobEl.value); const se=document.getElementById('cs_shipto'); if(ji && ji.ship && se && !se.value) se.value=ji.ship; });
   const addJobBtn=document.getElementById('cs_addjob');
   if(addJobBtn) addJobBtn.onclick=()=>{
-    const jn=(jobEl.value||'').trim(), po=(poEl.value||'').trim();
+    const jn=(jobEl.value||'').trim(), po=(poEl.value||'').trim(), sh=(document.getElementById('cs_shipto').value||'').trim();
     if(!jn){ toast('Enter a job name first'); return; }
-    CustomLists.addJob(jn, po);
-    toast('Saved "'+jn+'" → PO '+(po||'(none)')+' to the auto-fill list');
+    CustomLists.addJob(jn, po, sh);
+    toast('Saved "'+jn+'" → PO '+(po||'(none)')+' to the list');
+    renderJls();
   };
+  // Active Job List sidebar
+  function renderJls(){
+    const list=document.getElementById('jlsList'); if(!list) return;
+    const items=CustomLists.jobEntries();
+    list.innerHTML = items.length ? items.map(j=>`<div class="jls-item" data-fill="${esc(j.name)}">
+      <div class="jls-main"><div class="jls-name">${esc(j.name)}</div><div class="jls-meta">PO ${esc(j.po||'—')}${j.ship?(' · '+esc(j.ship)):''}</div></div>
+      <button class="jls-x" data-rm="${esc(j.name)}" title="Remove">×</button></div>`).join('')
+      : '<div class="jls-empty">No saved jobs yet. Add one above.</div>';
+    list.querySelectorAll('[data-rm]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation();
+      if(confirm('Remove "'+b.dataset.rm+'" from the job list?')){ CustomLists.removeJob(b.dataset.rm); renderJls(); } });
+    list.querySelectorAll('[data-fill]').forEach(el=>el.onclick=()=>{
+      const ji=CustomLists.jobInfo(el.dataset.fill); if(!ji) return;
+      jobEl.value=ji.name; poEl.value=ji.po||''; const se=document.getElementById('cs_shipto'); if(se && ji.ship) se.value=ji.ship;
+      jobEl.dispatchEvent(new Event('input')); toast('Loaded "'+ji.name+'"');
+    });
+  }
+  const jlsAdd=document.getElementById('jls_add');
+  if(jlsAdd) jlsAdd.onclick=()=>{
+    const n=(document.getElementById('jls_name').value||'').trim();
+    const p=(document.getElementById('jls_po').value||'').trim();
+    const s=(document.getElementById('jls_ship').value||'').trim();
+    if(!n){ toast('Enter a job name'); return; }
+    CustomLists.addJob(n,p,s);
+    document.getElementById('jls_name').value=''; document.getElementById('jls_po').value=''; document.getElementById('jls_ship').value='';
+    renderJls(); toast('Added "'+n+'" to the job list');
+  };
+  renderJls();
   // remembered job notes (per customer + job)
   const jnEl=document.getElementById('cs_jobnote'), jnHint=document.getElementById('jnHint'), jnPanel=document.getElementById('jobnotesPanel');
   let jnCombo={cust:c.customer||'', job:c.job||''};
