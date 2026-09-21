@@ -327,20 +327,26 @@
   body.tv .daybody{height:74vh}
 
   /* ===== cover sheet (scoped under .cs, light theme, isolated from the app) ===== */
-  .cs-layout{display:flex;gap:16px;align-items:flex-start}
-  .cs-layout .cs{flex:1;min-width:0}
-  .joblist-side{width:270px;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;position:sticky;top:16px}
-  .joblist-side h3{margin:0 0 4px;font-size:15px}
+  .cs-layout{display:block}
+  .cs-layout .cs{margin-bottom:40px}
+  .jls-toggle{position:fixed;right:0;top:130px;z-index:45;background:var(--amber);color:#1a1400;border:none;border-radius:8px 0 0 8px;padding:14px 8px;font-weight:800;font-size:13px;letter-spacing:.04em;writing-mode:vertical-rl;transform:rotate(180deg);cursor:pointer;box-shadow:-2px 2px 10px rgba(0,0,0,.25)}
+  .joblist-side{position:fixed;top:0;right:0;height:100%;width:300px;max-width:88vw;background:var(--panel);border-left:1px solid var(--line);padding:16px;z-index:60;overflow-y:auto;transform:translateX(100%);transition:transform .22s ease;box-shadow:-10px 0 34px rgba(0,0,0,.32)}
+  .joblist-side.open{transform:translateX(0)}
+  .joblist-side .jls-top{display:flex;align-items:center;justify-content:space-between}
+  .joblist-side .jls-close{border:none;background:transparent;color:var(--muted);font-size:26px;line-height:1;cursor:pointer;padding:0 4px}
+  .joblist-side h3{margin:0 0 4px;font-size:16px}
   .joblist-side .jls-sub{margin:0 0 12px;font-size:12px;color:var(--muted);line-height:1.35}
   .joblist-side .jls-add{display:flex;flex-direction:column;gap:7px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:10px}
   .joblist-side .jls-add input{font:inherit;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--inset);color:var(--ink)}
-  .joblist-side .jls-list{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto}
+  .joblist-side .jls-list{display:flex;flex-direction:column;gap:6px}
   .joblist-side .jls-item{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer}
   .joblist-side .jls-item:hover{border-color:var(--amber)}
   .joblist-side .jls-main{flex:1;min-width:0}
   .joblist-side .jls-name{font-weight:700;font-size:14px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .joblist-side .jls-meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
   .joblist-side .jls-x{flex:none;width:26px;height:26px;border:none;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;border-radius:6px}
+  .joblist-side .jls-e{flex:none;width:26px;height:26px;border:none;background:transparent;color:var(--muted);font-size:14px;line-height:1;cursor:pointer;border-radius:6px}
+  .joblist-side .jls-e:hover{background:var(--amber);color:#1a1400}
   .joblist-side .jls-x:hover{background:var(--bad);color:#fff}
   .joblist-side .jls-empty{font-size:13px;color:var(--muted);padding:8px 0}
   .cs{--csink:#14253b;--cssteel:#3c4f63;--csmuted:#6b7886;--csline:#d3d9e0;--csline2:#e5e9ee;--csaccent:#e07b1a;--csfield:#fffdf6;
@@ -460,8 +466,6 @@
     .cards,.tiles{grid-template-columns:1fr;gap:12px}
     .board{grid-template-columns:1fr;gap:12px}
     .cs .hdr{grid-template-columns:1fr 1fr}
-    .cs-layout{flex-direction:column}
-    .joblist-side{width:auto;position:static}
     .cs .cs-hdrwrap{flex-direction:column}
     .cs .jobnotes{width:auto;border-top:1px solid var(--csline);border-radius:0 0 7px 7px}
     .cs .delivgrid{grid-template-columns:1fr 1fr}
@@ -1127,9 +1131,10 @@ function renderOrderForm(){
       <span id="csMsg" class="muted" style="font-size:13px"></span>
     </div>
   </div>
-  <aside class="joblist-side noprint">
-    <h3>Active Job List</h3>
-    <p class="jls-sub">Jobs saved with a PO. Add a future job here and it's ready to auto-fill later.</p>
+  <button type="button" class="jls-toggle noprint" id="jlsToggle">Job List</button>
+  <aside class="joblist-side noprint" id="joblistSide">
+    <div class="jls-top"><h3>Active Job List</h3><button type="button" class="jls-close" id="jlsClose">×</button></div>
+    <p class="jls-sub">Jobs saved with a PO. Add a future job here and it's ready to auto-fill later. Tap one to load it.</p>
     <div class="jls-add">
       <input id="jls_name" placeholder="Job name" autocomplete="off">
       <input id="jls_po" placeholder="PO #" autocomplete="off">
@@ -1155,32 +1160,46 @@ function renderOrderForm(){
     renderJls();
   };
   // Active Job List sidebar
+  let jlsEditing=null;
   function renderJls(){
     const list=document.getElementById('jlsList'); if(!list) return;
     const items=CustomLists.jobEntries();
     list.innerHTML = items.length ? items.map(j=>`<div class="jls-item" data-fill="${esc(j.name)}">
       <div class="jls-main"><div class="jls-name">${esc(j.name)}</div><div class="jls-meta">PO ${esc(j.po||'—')}${j.ship?(' · '+esc(j.ship)):''}</div></div>
+      <button class="jls-e" data-edit="${esc(j.name)}" title="Edit">✎</button>
       <button class="jls-x" data-rm="${esc(j.name)}" title="Remove">×</button></div>`).join('')
       : '<div class="jls-empty">No saved jobs yet. Add one above.</div>';
     list.querySelectorAll('[data-rm]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation();
-      if(confirm('Remove "'+b.dataset.rm+'" from the job list?')){ CustomLists.removeJob(b.dataset.rm); renderJls(); } });
+      if(confirm('Remove "'+b.dataset.rm+'" from the job list?')){ CustomLists.removeJob(b.dataset.rm); if(jlsEditing===b.dataset.rm) jlsCancelEdit(); renderJls(); } });
+    list.querySelectorAll('[data-edit]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation();
+      const ji=CustomLists.jobInfo(b.dataset.edit); if(!ji) return;
+      document.getElementById('jls_name').value=ji.name; document.getElementById('jls_po').value=ji.po||''; document.getElementById('jls_ship').value=ji.ship||'';
+      jlsEditing=ji.name; document.getElementById('jls_add').textContent='Save changes';
+      document.getElementById('jls_name').focus();
+    });
     list.querySelectorAll('[data-fill]').forEach(el=>el.onclick=()=>{
       const ji=CustomLists.jobInfo(el.dataset.fill); if(!ji) return;
       jobEl.value=ji.name; poEl.value=ji.po||''; const se=document.getElementById('cs_shipto'); if(se && ji.ship) se.value=ji.ship;
-      jobEl.dispatchEvent(new Event('input')); toast('Loaded "'+ji.name+'"');
+      jobEl.dispatchEvent(new Event('input')); document.getElementById('joblistSide').classList.remove('open'); toast('Loaded "'+ji.name+'"');
     });
   }
+  function jlsCancelEdit(){ jlsEditing=null; const b=document.getElementById('jls_add'); if(b) b.textContent='Add to list'; }
   const jlsAdd=document.getElementById('jls_add');
   if(jlsAdd) jlsAdd.onclick=()=>{
     const n=(document.getElementById('jls_name').value||'').trim();
     const p=(document.getElementById('jls_po').value||'').trim();
     const s=(document.getElementById('jls_ship').value||'').trim();
     if(!n){ toast('Enter a job name'); return; }
+    if(jlsEditing && jlsEditing.toUpperCase()!==n.toUpperCase()) CustomLists.removeJob(jlsEditing);  // renamed -> drop the old entry
     CustomLists.addJob(n,p,s);
     document.getElementById('jls_name').value=''; document.getElementById('jls_po').value=''; document.getElementById('jls_ship').value='';
-    renderJls(); toast('Added "'+n+'" to the job list');
+    const wasEdit=!!jlsEditing; jlsCancelEdit();
+    renderJls(); toast(wasEdit?('Updated "'+n+'"'):('Added "'+n+'" to the job list'));
   };
   renderJls();
+  const jlsSide=document.getElementById('joblistSide');
+  document.getElementById('jlsToggle').onclick=()=>jlsSide.classList.add('open');
+  document.getElementById('jlsClose').onclick=()=>jlsSide.classList.remove('open');
   // remembered job notes (per customer + job)
   const jnEl=document.getElementById('cs_jobnote'), jnHint=document.getElementById('jnHint'), jnPanel=document.getElementById('jobnotesPanel');
   let jnCombo={cust:c.customer||'', job:c.job||''};
