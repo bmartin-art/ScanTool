@@ -294,6 +294,14 @@
   .schsplit .ssrow input[type=number]{width:80px}
   .scaddr{font-size:12px;color:var(--muted);margin-top:2px}
   .deliv-card .dtag{font-family:var(--mono);font-weight:800;font-size:11px;padding:2px 6px;border-radius:5px;background:var(--info);color:#fff}
+  .deliv-card .dstatus{font-size:10px;font-weight:800;letter-spacing:.03em;padding:2px 6px;border-radius:5px}
+  .dstatus.dsn{background:#e7ebf1;color:#566276}
+  .dstatus.dsb{background:#fbe7a0;color:#6b5300}
+  .dstatus.dsc{background:#d7f0e0;color:#1f7a44}
+  .deliv-card.dsn{border-left-color:#9aa6b5}
+  .deliv-card.dsb{border-left-color:var(--amber)}
+  .deliv-card.dsc{border-left-color:var(--good)}
+  .schact .btn.cursel{outline:2px solid var(--amber)}
   .deliv-card.third .dtag{background:var(--amber);color:#1a1400}
   .deliv-card .dtprint{margin-top:8px;padding:5px 9px;font-size:12px;width:100%;justify-content:center;display:flex}
   .schcard.pri{box-shadow:0 0 0 2px var(--bad)}
@@ -1502,14 +1510,40 @@ function schedSig(){ return ymd(mondayOf(new Date()))+'|'+Store.list().map(j=>j.
 /* ---------- DELIVERY SCHEDULE ------------------------------------------- */
 function openDelivery(){ if(!weekStart) weekStart=mondayOf(new Date()); go('delivery'); }
 function deliveriesOn(ds){ return Store.list().filter(j=>j.cover&&j.cover.deliv_on&&j.cover.deliv_date===ds); }
-function delivSig(){ return Store.list().filter(j=>j.cover&&j.cover.deliv_on).map(j=>j.name+':'+(j.cover.deliv_date||'')+':'+(j.cover.deliv_time||'')+':'+(j.cover.deliv_carrier||'')+':'+(j.cover.deliv_truck||'')).join('|'); }
+function delivSig(){ return Store.list().filter(j=>j.cover&&j.cover.deliv_on).map(j=>j.name+':'+(j.cover.deliv_date||'')+':'+(j.cover.deliv_time||'')+':'+(j.cover.deliv_carrier||'')+':'+(j.cover.deliv_truck||'')+':'+(j.delivStatus||'')).join('|'); }
+function setDelivStatus(name, st){ const j=Store.get(name); if(!j) return; j.delivStatus=st; normalizeOrder(j); Store.save(j); }
+function openDelivAction(name){
+  const j=Store.get(name); if(!j) return;
+  const cur=delivStatus(j);
+  document.querySelectorAll('.schact-overlay').forEach(x=>x.remove());
+  const wrap=document.createElement('div'); wrap.className='schact-overlay';
+  const btn=(st,cls)=>`<button class="btn lg ${cls} ${cur===st?'cursel':''}" data-st="${st}">${cur===st?'✓ ':''}${st}</button>`;
+  wrap.innerHTML=`<div class="schact">
+    <div class="schact-name">${esc(j.customer||j.title||j.name)}</div>
+    <div class="schact-sub">${esc(j.title||'')} — delivery</div>
+    ${btn('Not Booked','')}
+    ${btn('Booked','primary')}
+    ${btn('Complete','')}
+    <button class="btn lg" data-act="open">Open order</button>
+    <button class="btn ghost lg" data-act="cancel">Cancel</button>
+  </div>`;
+  document.body.appendChild(wrap);
+  const close=()=>wrap.remove();
+  wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
+  wrap.querySelector('[data-act="cancel"]').onclick=close;
+  wrap.querySelector('[data-act="open"]').onclick=()=>{ close(); openOrderForm(name); };
+  wrap.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{ setDelivStatus(name, b.dataset.st); close(); render(); });
+}
+function delivStatus(j){ return j.delivStatus || 'Not Booked'; }
+function delivSlug(s){ return s==='Complete'?'dsc':s==='Booked'?'dsb':'dsn'; }
 function delivCard(j){
   const c=j.cover||{};
   const meta=[c.deliv_time, [c.deliv_carrier,c.deliv_truck].filter(Boolean).join(' · ')].filter(Boolean).join('   ·   ');
   const contact=[c.deliv_name,c.deliv_phone].filter(Boolean).join(' · ');
   const tag=c.deliv_carrier==='Third Party'?'3RD':(c.deliv_carrier==='Our Truck'?'OUR':'');
-  return `<div class="schcard deliv-card${c.deliv_carrier==='Third Party'?' third':''}" data-open="${esc(j.name)}">
-    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span>${tag?`<span class="scright"><span class="dtag">${tag}</span></span>`:''}</div>
+  const st=delivStatus(j);
+  return `<div class="schcard deliv-card ${delivSlug(st)}${c.deliv_carrier==='Third Party'?' third':''}" data-open="${esc(j.name)}">
+    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span><span class="scright">${tag?`<span class="dtag">${tag}</span>`:''}<span class="dstatus ${delivSlug(st)}">${st}</span></span></div>
     ${j.title?`<div class="sctitle">${esc(j.title)}</div>`:''}
     ${meta?`<div class="scmeta">${esc(meta)}</div>`:''}
     ${c.deliv_addr?`<div class="scaddr">${esc(c.deliv_addr)}</div>`:''}
@@ -1519,7 +1553,9 @@ function delivCard(j){
 }
 function renderDelivery(){
   if(!weekStart) weekStart=mondayOf(new Date());
-  const wk=weekDays(weekStart);
+  const week1=weekDays(weekStart);
+  const nextStart=new Date(weekStart); nextStart.setDate(weekStart.getDate()+7);
+  const week2=weekDays(nextStart);
   const dayName=d=>d.toLocaleDateString('en-US',{weekday:'short'});
   const dayNum=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const todayStr=ymd(new Date());
@@ -1536,7 +1572,8 @@ function renderDelivery(){
       </div>
       <div class="schctrls"><button class="btn ghost" id="dHome">← Orders</button></div>
     </div>
-    <div class="board">${wk.map(dayCol).join('')}</div>
+    <div class="board">${week1.map(dayCol).join('')}</div>
+    <div class="board" style="margin-top:10px">${week2.map(dayCol).join('')}</div>
     <div class="unschedstrip">
       <div class="unschedhdr">Delivery set, no date yet <span class="muted">(${noDate.length})</span></div>
       <div class="unschedcards">${noDate.map(delivCard).join('')||'<div class="dayempty">none</div>'}</div>
@@ -1547,7 +1584,7 @@ function renderDelivery(){
   document.getElementById('dwkThis').onclick=()=>{ weekStart=mondayOf(new Date()); render(); };
   document.getElementById('dHome').onclick=()=>{ goHome(); };
   appEl.querySelectorAll('.dtprint').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const j=Store.get(b.dataset.tick); if(j) printDeliveryTicket(deliveryDataFromRecord(j)); });
-  appEl.querySelectorAll('.deliv-card[data-open]').forEach(el=>el.onclick=()=>openOrderForm(el.dataset.open));
+  appEl.querySelectorAll('.deliv-card[data-open]').forEach(el=>el.onclick=()=>openDelivAction(el.dataset.open));
   lastDelivSig=delivSig();
 }
 
