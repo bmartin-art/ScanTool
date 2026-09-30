@@ -293,6 +293,10 @@
   .schsplit .ssrow input{text-align:center;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--inset);color:var(--ink)}
   .schsplit .ssrow input[type=number]{width:80px}
   .scaddr{font-size:12px;color:var(--muted);margin-top:2px}
+  .sctruck{display:inline-flex;align-items:center;color:var(--info)}
+  body.tv .sctruck svg{width:22px;height:22px}
+  .schact-deliv{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+  .schact-deliv b{font-weight:800}
   .deliv-card .dtag{font-family:var(--mono);font-weight:800;font-size:11px;padding:2px 6px;border-radius:5px;background:var(--info);color:#fff}
   .deliv-card .dstatus{font-size:10px;font-weight:800;letter-spacing:.03em;padding:2px 6px;border-radius:5px}
   .dstatus.dsn{background:#e7ebf1;color:#566276}
@@ -1463,11 +1467,15 @@ function openSchedAction(name, sday){
   const canSplit = sday && dayHrs>1;
   document.querySelectorAll('.schact-overlay').forEach(x=>x.remove());
   const wrap=document.createElement('div'); wrap.className='schact-overlay';
+  const hasDeliv=j.cover&&j.cover.deliv_on;
+  const delivLine=hasDeliv?`<div class="schact-deliv">Delivery: <b>${j.cover.deliv_date?fmtSched(j.cover.deliv_date):'no date set'}</b>${j.cover.deliv_time?(' · '+esc(j.cover.deliv_time)):''} · ${delivStatus(j)}</div>`:'';
   wrap.innerHTML=`<div class="schact">
     <div class="schact-name">${esc(j.customer||j.title||j.name)}</div>
     <div class="schact-sub">${esc(j.title||'')} ${statusPill(j.status)}</div>
+    ${delivLine}
     <button class="btn primary lg" data-act="start">Start job — Work In Progress</button>
     <button class="btn lg" data-act="open">Open job</button>
+    ${hasDeliv?'<button class="btn lg" data-act="deliv">View delivery info →</button>':''}
     ${canSplit?`<div class="schsplit">
       <div class="ssl">Split job — ${fmtHr(dayHrs)} hr on this day</div>
       <div class="ssrow"><input type="number" id="splitHrs" min="1" max="${Math.floor(dayHrs)}" value="${Math.max(1,Math.round(dayHrs/2))}"><span>hrs to</span><input type="date" id="splitDay" value="${nextWeekday(sday)}"></div>
@@ -1481,6 +1489,13 @@ function openSchedAction(name, sday){
   wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
   wrap.querySelector('[data-act="cancel"]').onclick=close;
   wrap.querySelector('[data-act="open"]').onclick=()=>{ close(); openJob(name); };
+  const dv=wrap.querySelector('[data-act="deliv"]');
+  if(dv) dv.onclick=()=>{ close();
+    const jj=Store.get(name);
+    if(jj&&jj.cover&&jj.cover.deliv_date){ const [y,m,d]=jj.cover.deliv_date.split('-').map(Number); weekStart=mondayOf(new Date(y,m-1,d)); }
+    else weekStart=mondayOf(new Date());
+    go('delivery');
+  };
   wrap.querySelector('[data-act="start"]').onclick=()=>{
     const job2=Store.get(name);
     if(job2){ job2.status='Work In Progress'; normalizeOrder(job2); Store.save(job2); }
@@ -1499,7 +1514,7 @@ function schedCard(j, ds){
   const hrs = ds ? hoursOnDay(j,ds) : orderHours(j);
   const split = parts>1;
   return `<div class="schcard st-${statusSlug(j.status)}${j.priority?' pri':''}${split?' split':''}" data-open="${esc(j.name)}" data-sday="${esc(ds||'')}">
-    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span><span class="scright">${split?'<span class="scsplit">SPLIT</span>':''}${j.priority?'<span class="scpri">!</span>':''}${loc?'<span class="scloc">'+esc(loc)+'</span>':''}</span></div>
+    <div class="scrow"><span class="scname">${esc(j.customer||j.title||j.name)}</span><span class="scright">${(j.cover&&j.cover.deliv_on)?'<span class="sctruck" title="Being delivered"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="13" height="9" rx="1"/><path d="M14 8h4l3 3v3h-7z"/><circle cx="5.5" cy="17" r="1.7"/><circle cx="17.5" cy="17" r="1.7"/></svg></span>':''}${split?'<span class="scsplit">SPLIT</span>':''}${j.priority?'<span class="scpri">!</span>':''}${loc?'<span class="scloc">'+esc(loc)+'</span>':''}</span></div>
     <div class="scmeta">${/^TMP-/.test(j.name)?'(no order # yet)':('#'+esc(j.orderNo||j.name))}${hrs?(' · '+fmtHr(hrs)+' hr'+(split?' of '+fmtHr(orderHours(j)):'')):''}</div>
     <div class="sctitle">${esc(j.title||'')}</div>
     <div class="scbar"><i style="width:${p.pct}%;background:${color}"></i></div>
