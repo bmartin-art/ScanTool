@@ -716,6 +716,9 @@ const CustomLists={
   jobInfo(name){ return this.data.jobs[(name||'').trim().toUpperCase()]||null; },
   jobEntries(){ return Object.values(this.data.jobs).slice().sort((a,b)=>a.name.toLowerCase()<b.name.toLowerCase()?-1:1); },
   customerInfo(name){ return this.data.customers[(name||'').trim().toUpperCase()]||null; },
+  removeCustomer(name){ const u=(name||'').trim().toUpperCase(); if(this.data.customers[u]){ delete this.data.customers[u];
+    const b=BASE_CUSTOMERS.find(x=>x[0].toUpperCase()===u); if(b){ CMAP[u]=b[1]; } else { delete CMAP[u]; } this._save(); } },
+  custEntries(){ return Object.values(this.data.customers).slice().sort((a,b)=>a.name.toLowerCase()<b.name.toLowerCase()?-1:1); },
   custList(){ const m=new Map(); for(const [n,a] of BASE_CUSTOMERS) m.set(n.toUpperCase(),[n,a]); for(const v of Object.values(this.data.customers)) m.set(v.name.toUpperCase(),[v.name,v.acct]); return [...m.values()]; },
   jobList(){ const m=new Map(); for(const [n,p] of BASE_JOBS) m.set(n.toUpperCase(),[n,p]); for(const v of Object.values(this.data.jobs)) m.set(v.name.toUpperCase(),[v.name,v.po]); return [...m.values()]; },
   emailList(){ const s=new Set(); for(const v of Object.values(this.data.customers)) if(v.email) s.add(v.email); return [...s]; },
@@ -1155,6 +1158,17 @@ function renderOrderForm(){
     </div>
     <div class="jls-list" id="jlsList"></div>
   </aside>
+  <button type="button" class="jls-toggle noprint" id="custToggle" style="top:244px">Customers</button>
+  <aside class="joblist-side noprint" id="custSide">
+    <div class="jls-top"><h3>Customer List</h3><button type="button" class="jls-close" id="custClose">×</button></div>
+    <p class="jls-sub">Add customer names and account codes so the account # auto-fills. Tap one to load it.</p>
+    <div class="jls-add">
+      <input id="cust_name" placeholder="Customer name" autocomplete="off">
+      <input id="cust_code" placeholder="Account code" autocomplete="off">
+      <button class="btn" id="cust_add">Add to list</button>
+    </div>
+    <div class="jls-list" id="custMgrList"></div>
+  </aside>
   </div>`;
 
   // customer -> acct #, job -> PO # auto-fill
@@ -1212,6 +1226,40 @@ function renderOrderForm(){
   const jlsSide=document.getElementById('joblistSide');
   document.getElementById('jlsToggle').onclick=()=>jlsSide.classList.add('open');
   document.getElementById('jlsClose').onclick=()=>jlsSide.classList.remove('open');
+  // Customer list management
+  let custEditing=null;
+  function renderCusts(){
+    const list=document.getElementById('custMgrList'); if(!list) return;
+    const items=CustomLists.custEntries();
+    list.innerHTML = items.length ? items.map(c=>`<div class="jls-item" data-cfill="${esc(c.name)}">
+      <div class="jls-main"><div class="jls-name">${esc(c.name)}</div><div class="jls-meta">${esc(c.acct||'—')}</div></div>
+      <button class="jls-e" data-cedit="${esc(c.name)}" title="Edit">✎</button>
+      <button class="jls-x" data-crm="${esc(c.name)}" title="Remove">×</button></div>`).join('')
+      : '<div class="jls-empty">No added customers yet. Add one above.</div>';
+    list.querySelectorAll('[data-crm]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation();
+      if(confirm('Remove "'+b.dataset.crm+'" from the customer list?')){ CustomLists.removeCustomer(b.dataset.crm); if(custEditing===b.dataset.crm) custCancelEdit(); renderCusts(); } });
+    list.querySelectorAll('[data-cedit]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation();
+      const ci=CustomLists.customerInfo(b.dataset.cedit); if(!ci) return;
+      document.getElementById('cust_name').value=ci.name; document.getElementById('cust_code').value=ci.acct||'';
+      custEditing=ci.name; document.getElementById('cust_add').textContent='Save changes'; document.getElementById('cust_name').focus(); });
+    list.querySelectorAll('[data-cfill]').forEach(el=>el.onclick=()=>{
+      const ci=CustomLists.customerInfo(el.dataset.cfill); if(!ci) return;
+      cust.value=ci.name; acct.value=ci.acct||''; document.getElementById('custSide').classList.remove('open'); toast('Loaded "'+ci.name+'"'); });
+  }
+  function custCancelEdit(){ custEditing=null; const b=document.getElementById('cust_add'); if(b) b.textContent='Add to list'; }
+  document.getElementById('cust_add').onclick=()=>{
+    const n=(document.getElementById('cust_name').value||'').trim();
+    const co=(document.getElementById('cust_code').value||'').trim();
+    if(!n){ toast('Enter a customer name'); return; }
+    if(custEditing && custEditing.toUpperCase()!==n.toUpperCase()) CustomLists.removeCustomer(custEditing);
+    CustomLists.addCustomer(n, co);
+    document.getElementById('cust_name').value=''; document.getElementById('cust_code').value='';
+    const wasEdit=!!custEditing; custCancelEdit(); renderCusts(); toast(wasEdit?('Updated "'+n+'"'):('Added "'+n+'"'));
+  };
+  renderCusts();
+  const custSide=document.getElementById('custSide');
+  document.getElementById('custToggle').onclick=()=>custSide.classList.add('open');
+  document.getElementById('custClose').onclick=()=>custSide.classList.remove('open');
   // remembered job notes (per customer + job)
   const jnEl=document.getElementById('cs_jobnote'), jnHint=document.getElementById('jnHint'), jnPanel=document.getElementById('jobnotesPanel');
   let jnCombo={cust:c.customer||'', job:c.job||''};
