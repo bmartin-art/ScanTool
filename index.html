@@ -697,14 +697,12 @@ BASE_JOBS.forEach(([n,po])=>{ JMAP[n.trim().toUpperCase()]=po; });
 // Saved additions to the autofill lists (customer->acct#, ship-to/job->PO#).
 // Learned automatically from cover sheets so new names/POs come back next time.
 const CustomLists={
-  key:'dt_lists', data:{customers:{}, jobs:{}},
-  load(){
-    try{ const d=JSON.parse(localStorage.getItem(this.key)||'{}'); this.data={customers:d.customers||{}, jobs:d.jobs||{}}; }
-    catch(e){ this.data={customers:{}, jobs:{}}; }
+  data:{customers:{}, jobs:{}},
+  _applyMaps(){   // merge saved additions on top of the baked-in lists
     for(const v of Object.values(this.data.customers)) if(v.name) CMAP[v.name.toUpperCase()]=v.acct||'';
     for(const v of Object.values(this.data.jobs)) if(v.name) JMAP[v.name.toUpperCase()]=v.po||'';
   },
-  _save(){ try{ localStorage.setItem(this.key, JSON.stringify(this.data)); }catch(e){} },
+  _save(){ Lists.save(); },
   addCustomer(name,acct,contact,email){ name=(name||'').trim(); if(!name) return false; const u=name.toUpperCase();
     const isNew=(CMAP[u]===undefined); const prev=this.data.customers[u]||{};
     this.data.customers[u]={name, acct:(acct||'').trim(), contact:(contact||prev.contact||'').trim(), email:(email||prev.email||'').trim()};
@@ -712,7 +710,8 @@ const CustomLists={
   addJob(name,po,ship){ name=(name||'').trim(); if(!name) return false; const u=name.toUpperCase();
     const isNew=(JMAP[u]===undefined); const prev=this.data.jobs[u]||{};
     this.data.jobs[u]={name, po:(po||'').trim(), ship:(ship!=null?ship:(prev.ship||'')).trim()}; JMAP[u]=(po||'').trim(); this._save(); return isNew; },
-  removeJob(name){ const u=(name||'').trim().toUpperCase(); if(this.data.jobs[u]){ delete this.data.jobs[u]; delete JMAP[u]; this._save(); } },
+  removeJob(name){ const u=(name||'').trim().toUpperCase(); if(this.data.jobs[u]){ delete this.data.jobs[u]; delete JMAP[u];
+    const b=BASE_JOBS.find(x=>x[0].toUpperCase()===u); if(b) JMAP[u]=b[1]; this._save(); } },
   jobInfo(name){ return this.data.jobs[(name||'').trim().toUpperCase()]||null; },
   jobEntries(){ return Object.values(this.data.jobs).slice().sort((a,b)=>a.name.toLowerCase()<b.name.toLowerCase()?-1:1); },
   customerInfo(name){ return this.data.customers[(name||'').trim().toUpperCase()]||null; },
@@ -724,20 +723,42 @@ const CustomLists={
   emailList(){ const s=new Set(); for(const v of Object.values(this.data.customers)) if(v.email) s.add(v.email); return [...s]; },
   contactList(){ const s=new Set(); for(const v of Object.values(this.data.customers)) if(v.contact) s.add(v.contact); return [...s]; },
 };
-CustomLists.load();
 
 // Free-text notes remembered per customer + job name (e.g. "Walmart is TDC only").
-// They reappear whenever the same customer + job are entered again.
 const JobNotes={
-  key:'dt_jobnotes', data:{},
-  load(){ try{ this.data=JSON.parse(localStorage.getItem(this.key)||'{}')||{}; }catch(e){ this.data={}; } },
+  data:{},
   _k(cust,job){ return (cust||'').trim().toUpperCase()+'|'+(job||'').trim().toUpperCase(); },
   get(cust,job){ if(!(cust||'').trim()||!(job||'').trim()) return ''; return this.data[this._k(cust,job)]||''; },
   set(cust,job,note){ if(!(cust||'').trim()||!(job||'').trim()) return; const k=this._k(cust,job);
     if((note||'').trim()){ this.data[k]=note.trim(); } else { delete this.data[k]; }
-    try{ localStorage.setItem(this.key, JSON.stringify(this.data)); }catch(e){} },
+    Lists.save(); },
 };
-JobNotes.load();
+
+// Shared storage for the lists above — one blob on the backend so every user
+// (and device) sees the same customers, jobs and job notes. Local cache for offline.
+const Lists={
+  _cacheKey:'dt_lists_cache', _t:null,
+  _apply(blob){ CustomLists.data={ customers:(blob&&blob.customers)||{}, jobs:(blob&&blob.jobs)||{} };
+    JobNotes.data=(blob&&blob.jobnotes)||{}; CustomLists._applyMaps(); },
+  _blob(){ return { customers:CustomLists.data.customers, jobs:CustomLists.data.jobs, jobnotes:JobNotes.data }; },
+  async load(){
+    let blob=null;
+    try{ const cfg=Cfg.get(); const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),2500);
+      const res=await fetch(cfg.base.replace(/\/$/,'')+'/lists',{ headers:{'X-Access-Token':cfg.token}, signal:ctrl.signal });
+      clearTimeout(to); if(res.ok) blob=await res.json();
+    }catch(e){}
+    if(!blob){ try{ blob=JSON.parse(localStorage.getItem(this._cacheKey)||'{}'); }catch(e){ blob={}; } }   // offline fallback
+    this._apply(blob); try{ localStorage.setItem(this._cacheKey, JSON.stringify(blob)); }catch(e){}
+  },
+  save(){   // debounced push to backend + local cache
+    const blob=this._blob();
+    try{ localStorage.setItem(this._cacheKey, JSON.stringify(blob)); }catch(e){}
+    clearTimeout(this._t);
+    this._t=setTimeout(()=>{ try{ const cfg=Cfg.get();
+      fetch(cfg.base.replace(/\/$/,'')+'/lists',{ method:'PUT', headers:{'X-Access-Token':cfg.token,'Content-Type':'application/json'}, body:JSON.stringify(blob) }).catch(()=>{});
+    }catch(e){} }, 400);
+  },
+};
 function col(headers,names){
   for(const n of names){ const idx=headers.findIndex(h=>h.trim().toLowerCase()===n); if(idx>=0) return idx; }
   return -1;
@@ -958,7 +979,7 @@ function render(){
 document.getElementById('homeBtn').onclick=()=>goBack();
 
 /* ---------- ORDER ENTRY / EDIT ------------------------------------------- */
-function openOrderForm(name){ editOrderName=name||null; go('orderform'); }
+async function openOrderForm(name){ editOrderName=name||null; await Lists.load(); go('orderform'); }
 // Pick a 4-digit code not currently used by any open (not-Complete) order.
 function newMatchCode(){
   const used=new Set(Store.list().filter(j=>j.status!=='Complete').map(j=>j.cover&&j.cover.matchCode).filter(Boolean));
@@ -2334,6 +2355,7 @@ function pokeIngest(){ const now=Date.now(); if(now-lastIngestPoke<90000) return
 async function boot(){
   if(!Cfg.ready()){ view='settings'; render(); return; }
   await Store.init();
+  await Lists.load();                   // shared customers / jobs / job notes
   view='home'; render();
   startPolling();
   pokeIngest();                        // opening the app nudges OneDrive ingest (helps the first-of-morning file)
