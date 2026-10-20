@@ -130,6 +130,10 @@
   /* storage location (per order) */
   .locrow{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:16px}
   .loclabel{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;white-space:nowrap}
+  .locmgr{display:flex;flex-wrap:wrap;gap:8px}
+  .locchip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 6px 6px 12px;font-family:var(--mono);font-weight:700}
+  .locchip button{border:none;background:transparent;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;border-radius:5px;width:24px;height:24px}
+  .locchip button:hover{background:var(--bad);color:#fff}
   .locinput{flex:1;max-width:280px;font-family:var(--mono);font-size:20px;font-weight:700;letter-spacing:.04em;background:var(--inset);border:1px solid var(--line);border-radius:8px;color:var(--amber);padding:8px 12px}
   .locinput:focus{outline:none;border-color:var(--amber)}
   .locinput::placeholder{color:var(--muted);font-weight:500;font-size:14px;letter-spacing:0}
@@ -734,13 +738,21 @@ const JobNotes={
     Lists.save(); },
 };
 
+// Shared, managed storage locations (A, B, C, …) for staging scanned jobs.
+const Locations={
+  data:[],
+  list(){ return this.data.slice(); },
+  add(x){ x=(x||'').trim(); if(x && !this.data.some(l=>l.toUpperCase()===x.toUpperCase())){ this.data.push(x); this.data.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})); Lists.save(); return true; } return false; },
+  remove(x){ const n=this.data.length; this.data=this.data.filter(l=>l!==x); if(this.data.length!==n) Lists.save(); },
+};
+
 // Shared storage for the lists above — one blob on the backend so every user
-// (and device) sees the same customers, jobs and job notes. Local cache for offline.
+// (and device) sees the same customers, jobs, job notes and storage locations.
 const Lists={
   _cacheKey:'dt_lists_cache', _t:null,
   _apply(blob){ CustomLists.data={ customers:(blob&&blob.customers)||{}, jobs:(blob&&blob.jobs)||{} };
-    JobNotes.data=(blob&&blob.jobnotes)||{}; CustomLists._applyMaps(); },
-  _blob(){ return { customers:CustomLists.data.customers, jobs:CustomLists.data.jobs, jobnotes:JobNotes.data }; },
+    JobNotes.data=(blob&&blob.jobnotes)||{}; Locations.data=(blob&&blob.locations)||[]; CustomLists._applyMaps(); },
+  _blob(){ return { customers:CustomLists.data.customers, jobs:CustomLists.data.jobs, jobnotes:JobNotes.data, locations:Locations.data }; },
   async load(){
     let blob=null;
     try{ const cfg=Cfg.get(); const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),2500);
@@ -1675,7 +1687,7 @@ function renderDelivery(){
 function renderSettings(first){
   const c=Cfg.get();
   appEl.innerHTML=`
-    <h1>${first?'Connect this device':'Connection'}</h1>
+    <h1>${first?'Connect this device':'Settings'}</h1>
     <p class="sub">${first?'One-time setup. ':''}Enter your Cloudflare Worker URL and the shared access code (the ACCESS_TOKEN you set in Cloudflare). Every device that scans this data uses the same two values.</p>
     <div style="max-width:540px">
       <label class="muted" style="font-size:13px;display:block;margin-bottom:6px">Worker URL</label>
@@ -1691,6 +1703,15 @@ function renderSettings(first){
         <label class="muted" style="font-size:13px;display:block;margin-bottom:6px">OneDrive ingest</label>
         <button class="btn" id="cfgIngest">Check OneDrive for new files now</button>
         <p id="ingestMsg" class="muted" style="margin-top:10px;font-size:13px">Use this if a file is in the folder but hasn't shown up yet.</p>
+      </div>
+      <div style="margin-top:22px;border-top:1px solid var(--line);padding-top:18px">
+        <label class="muted" style="font-size:13px;display:block;margin-bottom:6px">Storage locations</label>
+        <p class="muted" style="font-size:12px;margin:0 0 10px">The staging spots (A, B, C…) the floor picks from when a job is set down. Shared for everyone.</p>
+        <div class="row" style="margin-bottom:12px">
+          <input type="text" id="locNew" placeholder="e.g. A" style="max-width:160px">
+          <button class="btn" id="locAdd">Add location</button>
+        </div>
+        <div id="locList" class="locmgr"></div>
       </div>`}
     </div>`;
   document.getElementById('cfgSave').onclick=async()=>{
@@ -1721,6 +1742,18 @@ function renderSettings(first){
     }catch(e){ m.textContent='Could not reach the Worker: '+e.message; }
     ing.disabled=false;
   };
+  const locListEl=document.getElementById('locList');
+  function renderLocs(){
+    if(!locListEl) return;
+    const items=Locations.list();
+    locListEl.innerHTML = items.length ? items.map(l=>`<span class="locchip">${esc(l)}<button data-locrm="${esc(l)}" title="Remove">×</button></span>`).join('')
+      : '<span class="muted" style="font-size:13px">No locations yet. Add one above.</span>';
+    locListEl.querySelectorAll('[data-locrm]').forEach(b=>b.onclick=()=>{ Locations.remove(b.dataset.locrm); renderLocs(); });
+  }
+  const locAdd=document.getElementById('locAdd');
+  if(locAdd){ locAdd.onclick=()=>{ const i=document.getElementById('locNew'); if(Locations.add(i.value)){ i.value=''; renderLocs(); } else toast('Enter a new location'); };
+    document.getElementById('locNew').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); locAdd.click(); } }); }
+  renderLocs();
 }
 function renderHome(){
   const jobs=Store.list();
@@ -1735,7 +1768,7 @@ function renderHome(){
       <button class="btn" id="delivBtn">Deliveries</button>
       <button class="btn" id="newJob">New job from CSV</button>
       <button class="btn" id="openFile">Open job file (.json)</button>
-      <button class="btn ghost" id="settingsBtn" style="margin-left:auto">Connection</button>
+      <button class="btn ghost" id="settingsBtn" style="margin-left:auto">Settings</button>
       <input type="file" id="csvFile" accept=".csv,.CSV" class="hidden">
       <input type="file" id="jsonFile" accept=".json" class="hidden">
     </div>
@@ -1763,7 +1796,7 @@ function renderHome(){
   appEl.querySelectorAll('[data-export]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();exportJob(el.dataset.export);});
   appEl.querySelectorAll('[data-edit]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();openOrderForm(el.dataset.edit);});
   appEl.querySelectorAll('[data-del]').forEach(el=>el.onclick=ev=>{ev.stopPropagation();
-    if(confirm('Remove order “'+el.dataset.del+'”? This deletes it for everyone. (The CAMduct export is unaffected.)')){Store.remove(el.dataset.del);render();}});
+    if(confirm('Delete order “'+el.dataset.del+'” for everyone? It will not be pulled back in from the folder. (To bring it back later, re-export the file.)')){Store.remove(el.dataset.del);render();}});
   const dt=document.getElementById('doneToggle'); if(dt) dt.onclick=()=>{ showCompleted=!showCompleted; render(); };
   const se=document.getElementById('jobSearch');
   if(se){
@@ -1892,7 +1925,7 @@ function renderScan(){
     <p class="sub" style="margin:-2px 0 16px">${[job.orderNo?('Order #'+esc(job.orderNo)):'', job.title&&job.title!==job.name?esc(job.title):''].filter(Boolean).join(' · ')}</p>
     <div class="locrow">
       <span class="loclabel">Storage location</span>
-      <input id="jobLoc" class="locinput" value="${esc(job.location||'')}" placeholder="type the location, e.g. A  (Enter to save)" maxlength="40" autocomplete="off" spellcheck="false">
+      <input id="jobLoc" class="locinput" list="locPickList" value="${esc(job.location||'')}" placeholder="pick or type, e.g. A  (Enter to save)" maxlength="40" autocomplete="off" spellcheck="false"><datalist id="locPickList">${Locations.list().map(l=>'<option value="'+esc(l)+'">').join('')}</datalist>
     </div>
     <div class="stat">
       <div><div class="k" id="pctK">${p.pct}%</div><div class="l">Warehoused</div></div>
@@ -1946,12 +1979,14 @@ function renderScan(){
     ${mode==='pallet'?`<button class="btn" id="newPallet">New pallet</button>
       <button class="btn primary" id="printTag" ${activePallet?'':'disabled'}>Print pallet tag</button>`:''}
     <button class="btn ghost" id="toReport">Job status &amp; shortages</button>
-    <button class="btn ghost" id="toDetails">Order details</button>`;
+    <button class="btn ghost" id="toDetails">Order details</button>
+    ${job.status!=='Complete'?'<button class="btn ghost" id="forceDone" style="margin-left:auto">Force complete</button>':''}`;
   document.getElementById('toOrders').onclick=()=>{ goHome(); };
   document.getElementById('toDetails').onclick=()=>openOrderForm(job.name);
   const np=document.getElementById('newPallet'); if(np) np.onclick=()=>{newPallet();render();};
   const pt=document.getElementById('printTag'); if(pt) pt.onclick=()=>printTag(activePallet);
   document.getElementById('toReport').onclick=()=>go('report');
+  const fd=document.getElementById('forceDone'); if(fd) fd.onclick=()=>forceComplete(job.name);
 }
 
 function palletStripHTML(){
@@ -2304,6 +2339,17 @@ function keepFocus(inp){
   inp.addEventListener('focus',()=>set(true));
   document.addEventListener('click',e=>{ if(view!=='scan'||manualOpen) return;
     if(!e.target.closest('button') && !e.target.closest('input') && document.getElementById('tagModal').classList.contains('hidden')) inp.focus(); });
+}
+// Force an order to Complete without scanning everything (e.g. it already shipped).
+// Code-gated so it isn't tapped by accident; marking Complete sends the customer email.
+const FORCE_CODE='3340';
+function forceComplete(name){
+  const j=Store.get(name); if(!j) return;
+  const code=prompt('Force this order to Complete?\n\nThis marks it done and emails the customer (if an email is on file). Enter the code to confirm:');
+  if(code===null) return;
+  if(code.trim()!==FORCE_CODE){ toast('Wrong code'); return; }
+  j.status='Complete'; normalizeOrder(j); Store.save(j);
+  toast('Order forced to Complete'); render();
 }
 function refocus(){ const i=document.getElementById('scan'); if(i) i.focus(); }
 
